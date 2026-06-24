@@ -12,7 +12,7 @@ Authoritative inventory of every legal `exp` path and field type used in workflo
 - **Explore a namespace:** jump to the `### <TypeName>` section directly. Anchors are stable (`#ApplicantExpressionData`, `#PoiExpressionData`, `#BackgroundChecksExpressionData`, …).
 - **Disambiguate same-named leaves:** the same leaf appears under multiple parents (e.g. `firstName` lives on `applicant.fixedInfo`, on `applicant.info`, and on each document's `crossCheckNameData`). The Index entry shows the full chain — pick the one matching your intent.
 
-**Out of scope here.** This file lists *paths and field types* only. It does not enumerate operators (`eq`, `in`, `gt`, `notEmpty`, …) — see `workflow-schema.md` and the `SKILL.md` operator table for those. Some fields are typed as `Enum`; their value lists appear inline in the relevant table.
+**Out of scope here.** This file lists *paths and field types* only. It does not enumerate operators (`eq`, `in`, `gt`, `notEmpty`, …) — see the operator list in `workflow-schema.md` (and the *Edge conditions* section of `SKILL.md`) for those. Some fields are typed as `Enum`; their value lists appear inline in the relevant table.
 
 ## Types
 
@@ -769,7 +769,7 @@ Review Rejection label
 
 Violations that may occur during:
  <ul>
-     <li>cross validation of the de.smtdp.kyc.domain.Applicant and his info, documents</li>
+     <li>cross validation of the applicant and their info, documents</li>
      <li>document validation</li>
  </ul>
 

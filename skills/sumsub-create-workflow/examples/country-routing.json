@@ -1,21 +1,103 @@
 {
-  "title": "Country-Routed KYC (example)",
   "kind": "default",
   "revisionStatus": "draft",
-  "desc": "Entry country-selector level fans out to IDV / region-reject / manual review based on country.",
-
   "nodes": [
-    { "id": "country-check", "type": "level", "name": "Country selector", "levelName": "Country Selector" },
-    { "id": "route",         "type": "condition", "name": "Country router" },
-    { "id": "idv",           "type": "level", "name": "Identity check", "levelName": "IDV" },
-    { "id": "reject-region", "type": "rejectFinal", "name": "Region not allowed", "labels": ["WRONG_USER_REGION"] },
-    { "id": "manual",        "type": "review", "name": "Manual review" }
+    {
+      "id": "country-check",
+      "type": "applicantLevel",
+      "name": "Country selector",
+      "levelName": "Country Selector"
+    },
+    {
+      "id": "route",
+      "type": "exclusiveChoice",
+      "name": "Country router"
+    },
+    {
+      "id": "reject-region",
+      "type": "finalRejection",
+      "name": "Region not allowed",
+      "labels": [
+        "WRONG_USER_REGION"
+      ]
+    },
+    {
+      "id": "idv",
+      "type": "applicantLevel",
+      "name": "Identity check",
+      "levelName": "IDV"
+    },
+    {
+      "id": "idv-result",
+      "type": "exclusiveChoice",
+      "name": "IDV result"
+    },
+    {
+      "id": "manual",
+      "type": "manualReview",
+      "name": "Manual review"
+    }
   ],
-
   "edges": [
-    { "from": "country-check", "to": "route",         "on": "approved" },
-    { "from": "route",         "to": "idv",           "when": "applicant.country = USA OR applicant.country = CAN" },
-    { "from": "route",         "to": "reject-region", "when": "applicant.country in [UZB, DEU, AFG]" },
-    { "from": "idv",           "to": "manual",        "on": ["rejected", "resubmission"] }
+    {
+      "from": "country-check",
+      "to": "route"
+    },
+    {
+      "from": "route",
+      "to": "reject-region",
+      "condition": {
+        "or": [
+          {
+            "and": [
+              {
+                "op": "in",
+                "args": [
+                  {
+                    "exp": "applicant.country"
+                  },
+                  {
+                    "lit": "[\"UZB\", \"DEU\", \"AFG\"]"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "from": "route",
+      "to": "idv",
+      "on": "approved",
+      "condition": {
+        "or": [
+          {
+            "and": [
+              {
+                "op": "in",
+                "args": [
+                  {
+                    "exp": "applicant.country"
+                  },
+                  {
+                    "lit": "[\"USA\", \"CAN\"]"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "from": "idv",
+      "to": "idv-result"
+    },
+    {
+      "from": "idv-result",
+      "to": "manual",
+      "on": "rejected"
+    }
   ]
 }

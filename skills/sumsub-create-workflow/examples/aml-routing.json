@@ -1,0 +1,172 @@
+{
+  "kind": "default",
+  "revisionStatus": "draft",
+  "nodes": [
+    {
+      "id": "kyc",
+      "type": "applicantLevel",
+      "name": "Basic KYC",
+      "levelName": "basic-kyc-level"
+    },
+    {
+      "id": "geo",
+      "type": "exclusiveChoice",
+      "name": "Geo / client-list gate"
+    },
+    {
+      "id": "reject-geo",
+      "type": "finalRejection",
+      "name": "Embargoed region",
+      "labels": [
+        "WRONG_USER_REGION"
+      ]
+    },
+    {
+      "id": "aml",
+      "type": "applicantLevel",
+      "name": "AML screening",
+      "levelName": "aml-screening-level"
+    },
+    {
+      "id": "amlgate",
+      "type": "exclusiveChoice",
+      "name": "AML label routing"
+    },
+    {
+      "id": "tag-sanc",
+      "type": "actions",
+      "name": "Tag sanctions/media",
+      "actions": [
+        {
+          "tag": [
+            "Sanctions/adverse media"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tag-pep",
+      "type": "actions",
+      "name": "Tag PEP",
+      "actions": [
+        {
+          "tag": [
+            "PEP"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "manual",
+      "type": "manualReview",
+      "name": "EDD manual review"
+    }
+  ],
+  "edges": [
+    {
+      "from": "kyc",
+      "to": "geo"
+    },
+    {
+      "from": "geo",
+      "to": "reject-geo",
+      "condition": {
+        "or": [
+          {
+            "and": [
+              {
+                "op": "in",
+                "args": [
+                  {
+                    "exp": "applicant.country"
+                  },
+                  {
+                    "exp": "clientLists.embargoed_jurisdiction_list"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "and": [
+              {
+                "op": "in",
+                "args": [
+                  {
+                    "exp": "poi.country"
+                  },
+                  {
+                    "exp": "clientLists.embargoed_jurisdiction_list"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "from": "geo",
+      "to": "aml",
+      "on": "approved"
+    },
+    {
+      "from": "aml",
+      "to": "amlgate"
+    },
+    {
+      "from": "amlgate",
+      "to": "tag-sanc",
+      "condition": {
+        "or": [
+          {
+            "and": [
+              {
+                "op": "containsAny",
+                "args": [
+                  {
+                    "exp": "applicant.review.rejectLabels"
+                  },
+                  {
+                    "lit": "[\"SANCTIONS\", \"ADVERSE_MEDIA\"]"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "from": "amlgate",
+      "to": "tag-pep",
+      "condition": {
+        "or": [
+          {
+            "and": [
+              {
+                "op": "contains",
+                "args": [
+                  {
+                    "exp": "applicant.review.rejectLabels"
+                  },
+                  {
+                    "lit": "\"PEP\""
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "from": "tag-sanc",
+      "to": "manual"
+    },
+    {
+      "from": "tag-pep",
+      "to": "manual"
+    }
+  ]
+}

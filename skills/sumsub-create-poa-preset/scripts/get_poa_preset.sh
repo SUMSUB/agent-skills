@@ -32,7 +32,7 @@ fi
 
 ID="$1"
 METHOD="GET"
-PATH_Q="/resources/api/poaStepSettings/${ID}"
+PATH_Q="/resources/api/agent/poaStepSettings/${ID}"
 TS="$(date -u +%s)"
 
 SIG="$(

@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Manage Sumsub clientWebhooks: list / get / create / update / disable / enable.
 #
-# Talks to the public API resource (ClientWebhookApiResource), which exposes
-# only GET (list, oldest 50) and POST (upsert) under /resources/clientWebhooks.
-# Delete and per-webhook delivery stats have no public-API equivalent and
-# must be handled in the Sumsub dashboard UI; they are not implemented here.
+# Reads (GET list/get) hit /resources/api/clientWebhooks; writes (POST upsert
+# for create/update/disable/enable) hit /resources/api/agent/clientWebhooks,
+# Delete and per-webhook delivery
+# stats have no public-API equivalent and must be handled in the Sumsub
+# dashboard UI; they are not implemented here.
 #
 # Authenticates via App Token + secret (HMAC-SHA256) per
-# https://docs.sumsub.com/reference/authentication.
+# https://docs.sumsub.com/reference/authentication. 
 #
 # Usage:
 #   SUMSUB_APP_TOKEN=sbx:...  \
@@ -34,7 +35,10 @@ if [[ "${SUMSUB_APP_TOKEN}" != sbx:* && "${SUMSUB_ALLOW_PROD:-0}" != "1" ]]; the
 fi
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ENDPOINT_PATH="/resources/clientWebhooks"
+# Reads (list / get) hit the non-agent resource; writes (create / update /
+# disable / enable) hit the agent resource.
+READ_PATH="/resources/api/clientWebhooks"
+WRITE_PATH="/resources/api/agent/clientWebhooks"
 
 if [[ $# -lt 1 ]]; then
   sed -n '4,24p' "$0" >&2; exit 2
@@ -66,7 +70,7 @@ sumsub_request() {
     -H "X-App-Access-Ts: ${ts}"
     -H "X-App-Access-Sig: ${sig}"
     -H "X-Agent-Source: sumsub-skills"
-    -H "X-Agent-Source-Ver: 1.0.1"
+    -H "X-Agent-Source-Ver: 1.1.0"
     -H "Accept: application/json"
   )
   if [[ -n "${body_file}" ]]; then
@@ -105,7 +109,7 @@ case "$CMD" in
   list)
     json_only="false"
     if [[ "${1:-}" == "--json" ]]; then json_only="true"; fi
-    body="$(sumsub_request GET "${ENDPOINT_PATH}")"
+    body="$(sumsub_request GET "${READ_PATH}")"
     if [[ "$json_only" == "true" ]]; then
       echo "$body"
     else
@@ -116,7 +120,7 @@ case "$CMD" in
   get)
     [[ $# -ge 1 ]] || { echo "usage: get <id>" >&2; exit 2; }
     id="$1"
-    sumsub_request GET "${ENDPOINT_PATH}" \
+    sumsub_request GET "${READ_PATH}" \
       | python3 -c "
 import json, sys
 target=sys.argv[1]
@@ -147,7 +151,7 @@ sys.exit(1)
     if [[ "$CMD" == "update" && "$has_id" == "no" ]]; then
       echo "error: 'update' requires id in the spec" >&2; exit 2
     fi
-    resp="$(sumsub_request POST "${ENDPOINT_PATH}" "$payload")"
+    resp="$(sumsub_request POST "${WRITE_PATH}" "$payload")"
     echo "$resp" | python3 -c "
 import json, sys
 w=json.load(sys.stdin)
@@ -169,7 +173,7 @@ print(f\"  types:         {w.get('types')}\")
     [[ $# -ge 1 ]] || { echo "usage: $CMD <id>" >&2; exit 2; }
     id="$1"
     new_state="$([ "$CMD" = "disable" ] && echo true || echo false)"
-    body="$(sumsub_request GET "${ENDPOINT_PATH}")"
+    body="$(sumsub_request GET "${READ_PATH}")"
     current="$(python3 -c "
 import json, sys
 d=json.loads(sys.argv[1]); items=(d.get('list') or {}).get('items') or []
@@ -188,7 +192,7 @@ w=json.loads(sys.argv[1])
 w['disabled']=(sys.argv[2]=='true')
 print(json.dumps(w))
 " "$current" "$new_state" > "$new_payload"
-    resp="$(sumsub_request POST "${ENDPOINT_PATH}" "$new_payload")"
+    resp="$(sumsub_request POST "${WRITE_PATH}" "$new_payload")"
     echo "$resp" | python3 -c "
 import json, sys
 w=json.load(sys.stdin)

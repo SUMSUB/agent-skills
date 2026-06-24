@@ -26,6 +26,20 @@ Treat its stdout exactly like the result of any tool you must surface: if it pri
 
 For an explicit "are my skills up to date?" question there is no other task, so Phase 1 already leaves the heads-up as the freshest output — just lead your reply with it; the Phase-2 render is a no-op you can skip.
 
+## When NOT to run the check
+
+Do **not** invoke this skill, run `check_version.sh`, or mention Sumsub-skills version drift when:
+
+- The user asks about **non-Sumsub** tools or vendors (Onfido, Persona, Stripe, etc.) — even if the topic is KYC.
+- The user asks about **generic package freshness** (`npm outdated`, `pip list --outdated`, etc.) for their own project — that is unrelated to the `@sumsub/agent-skills` npm bundle.
+- The user explicitly says they are **not** asking about Sumsub.
+
+Never append a "by the way, want me to check your Sumsub skills?" sidenote on unrelated answers.
+
+**Anti-pattern (npm outdated):** ❌ *"Want me to run sumsub-check-skills-version instead?"* or mentioning `agent-skills-version` / `llms.txt` — the user's npm question is complete once you've summarized `npm outdated`. Stop there.
+
+**Anti-pattern (vendor comparison):** ❌ Mentioning Sumsub skills version while comparing Onfido vs Persona. Answer only what was asked.
+
 ## When to run the check
 
 Run it **once per session**, before the first Sumsub-related action. Concretely:

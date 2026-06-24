@@ -128,8 +128,6 @@ curl -sS -X POST \
   -H "X-App-Token: $SUMSUB_APP_TOKEN" \
   -H "X-App-Access-Ts: $TS" \
   -H "X-App-Access-Sig: $SIG" \
-  -H "X-Agent-Source: sumsub-skills" \
-  -H "X-Agent-Source-Ver: 1.0.1" \
   "https://api.sumsub.com${PATH_Q}"
 ```
 
@@ -301,7 +299,7 @@ Sumsub POSTs JSON to your URL on every event. Two paths for registering it:
 - **Sandbox (while building this integration):** use the
   [`sumsub-manage-webhooks`](../sumsub-manage-webhooks/SKILL.md) skill. It
   builds the `clientWebhooks` payload from a compact spec, POSTs to
-  `/resources/clientWebhooks` with App Token auth, refuses non-`sbx:` tokens,
+  `/resources/api/agent/clientWebhooks` with App Token auth, refuses non-`sbx:` tokens,
   rejects `localhost` / `127.0.0.1` targets up front, and walks the user
   through exposing their local receiver via `ngrok http <port>` so Sumsub can
   actually reach it. Hand off the `target`, `types[]`, and `signatureAlgorithm`
@@ -410,8 +408,6 @@ curl -sS \
   -H "X-App-Token: $SUMSUB_APP_TOKEN" \
   -H "X-App-Access-Ts: $TS" \
   -H "X-App-Access-Sig: $SIG" \
-  -H "X-Agent-Source: sumsub-skills" \
-  -H "X-Agent-Source-Ver: 1.0.1" \
   "https://api.sumsub.com${PATH_Q}"
 ```
 

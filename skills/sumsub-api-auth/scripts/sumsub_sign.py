@@ -8,8 +8,8 @@ Usage:
 Examples:
     sumsub_sign.py GET /resources/applicants/-/count
     sumsub_sign.py POST /resources/accessTokens?userId=u1&levelName=basic-kyc-level
-    sumsub_sign.py POST /resources/api/questionnaires payload.json
-    cat payload.json | sumsub_sign.py POST /resources/api/poaStepSettings -
+    sumsub_sign.py POST /resources/api/agent/questionnaires payload.json
+    cat payload.json | sumsub_sign.py POST /resources/api/agent/poaStepSettings -
 
 Refuses to run when the App Token does not look like a sandbox token. Override
 with SUMSUB_ALLOW_PROD=1 only if you know what you are doing — and never with
@@ -76,7 +76,7 @@ def main() -> int:
     print(f"X-App-Access-Ts: {ts}")
     print(f"X-App-Access-Sig: {sig}")
     print("X-Agent-Source: sumsub-skills")
-    print("X-Agent-Source-Ver: 1.0.1")
+    print("X-Agent-Source-Ver: 1.1.0")
     return 0
 
 

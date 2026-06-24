@@ -49,7 +49,7 @@ if ! python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if 
 fi
 
 METHOD="PATCH"
-PATH_Q="/resources/api/poaStepSettings"
+PATH_Q="/resources/api/agent/poaStepSettings"
 TS="$(date -u +%s)"
 
 SIG="$(

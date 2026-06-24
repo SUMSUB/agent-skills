@@ -1,6 +1,6 @@
 ---
 name: sumsub-create-poa-preset
-description: Create or update a Sumsub Proof-of-Address (POA) preset. POST `/resources/api/poaStepSettings` to create new, PATCH same path to update (id in body), GET `/resources/api/poaStepSettings/{id}` to read one back. TRIGGER when the user asks to "create / add / build / configure / update / edit a POA preset" or "PoA step settings", configure which proof-of-address document types are accepted (utility bills, bank statements, tax bills, etc.), set validity periods per provider type, enable POI-as-POA (accept identity doc as proof of address), tune the cross-validator (name/address fuzzy match between POI and POA), or add per-country POA overrides. SKIP for attaching a preset to a level (set `poaStepSettingsId` on the level instead, via `sumsub-create-level`), or for non-POA presets (cross-check presets, permission presets, etc.).
+description: Create or update a Sumsub Proof-of-Address (POA) preset. POST `/resources/api/agent/poaStepSettings` to create new, PATCH same path to update (id in body), GET `/resources/api/agent/poaStepSettings/{id}` to read one back. TRIGGER when the user asks to "create / add / build / configure / update / edit a POA preset" or "PoA step settings", configure which proof-of-address document types are accepted (utility bills, bank statements, tax bills, etc.), set validity periods per provider type, enable POI-as-POA (accept identity doc as proof of address), tune the cross-validator (name/address fuzzy match between POI and POA), or add per-country POA overrides. SKIP for attaching a preset to a level (set `poaStepSettingsId` on the level instead, via `sumsub-create-level`), or for non-POA presets (cross-check presets, permission presets, etc.).
 allowed-tools: Read, Write, Bash
 ---
 
@@ -14,9 +14,9 @@ Builds a POA preset JSON payload from a compact spec, POSTs it to the Sumsub API
 
 | Method | Path | When |
 |---|---|---|
-| `POST` | `/resources/api/poaStepSettings` | Create a new preset. Body MUST NOT include `id` — server assigns it. |
-| `PATCH` | `/resources/api/poaStepSettings` | Update an existing preset. Body MUST include `id` (the field, not in the URL). |
-| `GET` | `/resources/api/poaStepSettings/{id}` | Read one preset back — used to verify what landed and to resolve `name` from a known `id`. |
+| `POST` | `/resources/api/agent/poaStepSettings` | Create a new preset. Body MUST NOT include `id` — server assigns it. |
+| `PATCH` | `/resources/api/agent/poaStepSettings` | Update an existing preset. Body MUST include `id` (the field, not in the URL). |
+| `GET` | `/resources/api/agent/poaStepSettings/{id}` | Read one preset back — used to verify what landed and to resolve `name` from a known `id`. |
 
 All three require permission `manageClientSettings`. Body shape is the
 [POA preset schema](references/poa-preset-schema.md) — client-settable

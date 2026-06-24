@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Expand a compact webhook spec (JSON on stdin) into a full Sumsub `ClientWebhook`
-payload (JSON on stdout) suitable for POST /resources/clientWebhooks.
+payload (JSON on stdout) suitable for POST /resources/api/agent/clientWebhooks.
 
 The same payload covers both create (no `id`) and update (with `id`); the
 endpoint dispatches by presence/absence of `id`.

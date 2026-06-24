@@ -31,7 +31,7 @@ fi
 
 ID="$1"
 METHOD="GET"
-PATH_Q="/resources/api/crossCheckPresets/${ID}"
+PATH_Q="/resources/api/agent/crossCheckPresets/${ID}"
 TS="$(date -u +%s)"
 
 SIG="$(
@@ -45,5 +45,7 @@ curl -sS -X "${METHOD}" \
   -H "X-App-Access-Ts: ${TS}" \
   -H "X-App-Access-Sig: ${SIG}" \
   -H "Accept: application/json" \
+  -H "X-Agent-Source: sumsub-skills" \
+  -H "X-Agent-Source-Ver: 1.1.0" \
   -w '\nHTTP %{http_code}\n' \
   "${BASE%/}${PATH_Q}"

@@ -45,9 +45,9 @@ Source: Sumsub OpenAPI (`components.schemas.CrossCheckPresetCreateRequest`, `Cro
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| `POST` | `/resources/api/crossCheckPresets` | API (App Token) | Create. Returns `CrossCheckPresetDto` with assigned `id`. |
-| `PATCH` | `/resources/api/crossCheckPresets` | API (App Token) | Update by `id` in body. |
-| `GET` | `/resources/api/crossCheckPresets/{id}` | API (App Token) | Read one. |
+| `POST` | `/resources/api/agent/crossCheckPresets` | API (App Token) | Create. Returns `CrossCheckPresetDto` with assigned `id`. |
+| `PATCH` | `/resources/api/agent/crossCheckPresets` | API (App Token) | Update by `id` in body. |
+| `GET` | `/resources/api/agent/crossCheckPresets/{id}` | API (App Token) | Read one. |
 
 There is no public-API list or DELETE endpoint — to find a preset by
 title you need to remember its `id` from creation. Browsing all presets

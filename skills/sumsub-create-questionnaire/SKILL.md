@@ -1,6 +1,6 @@
 ---
 name: sumsub-create-questionnaire
-description: Create or update a Sumsub KYC questionnaire definition. POST `/resources/api/questionnaires` to create new (fails 409 if id exists), PATCH same path to update (fails 404 if id is unknown), GET `/resources/api/questionnaires/{id}` to read one back. TRIGGER when the user asks to "create / add / build / update / edit a Sumsub questionnaire", or supplies a list of questions / sections meant for a Sumsub applicant flow, or references a questionnaire id / definition to be POSTed or PATCHed. SKIP for other Sumsub entities (levels, workflows, applicants), questionnaire data (answers) submission, or non-Sumsub form builders.
+description: Create or update a Sumsub KYC questionnaire definition. POST `/resources/api/agent/questionnaires` to create new (fails 409 if id exists), PATCH same path to update (fails 404 if id is unknown), GET `/resources/api/agent/questionnaires/{id}` to read one back. TRIGGER when the user asks to "create / add / build / update / edit a Sumsub questionnaire", or supplies a list of questions / sections meant for a Sumsub applicant flow, or references a questionnaire id / definition to be POSTed or PATCHed. SKIP for other Sumsub entities (levels, workflows, applicants), questionnaire data (answers) submission, or non-Sumsub form builders.
 allowed-tools: Read, Write, Bash
 ---
 
@@ -14,11 +14,11 @@ to the Sumsub API, and reports the resulting `id` (client-supplied slug) and
 
 | Method | Path | When |
 |---|---|---|
-| `POST` | `/resources/api/questionnaires` | Create a new questionnaire. **Fails with `409 CONFLICT`** if `id` already exists. |
-| `PATCH` | `/resources/api/questionnaires` | Update an existing questionnaire (by `id` in body). **Fails with `404 NOT_FOUND`** if no such questionnaire. |
-| `GET` | `/resources/api/questionnaires/{id}` | Read one questionnaire (verify what landed; resolve `title` from a known `id`). |
-| `GET` | `/resources/api/questionnaires/list` | List all questionnaires. |
-| `GET` | `/resources/api/questionnaires/usedByLevels` | List questionnaires with the levels that reference them. |
+| `POST` | `/resources/api/agent/questionnaires` | Create a new questionnaire. **Fails with `409 CONFLICT`** if `id` already exists. |
+| `PATCH` | `/resources/api/agent/questionnaires` | Update an existing questionnaire (by `id` in body). **Fails with `404 NOT_FOUND`** if no such questionnaire. |
+| `GET` | `/resources/api/agent/questionnaires/{id}` | Read one questionnaire (verify what landed; resolve `title` from a known `id`). |
+| `GET` | `/resources/api/questionnaires/list` | List all questionnaires. (Stays on the non-agent path.) |
+| `GET` | `/resources/api/questionnaires/usedByLevels` | List questionnaires with the levels that reference them. (Stays on the non-agent path.) |
 
 All require permission `manageClientSettings`. Body shape is the
 [questionnaire schema](references/questionnaire-schema.md) — client-settable

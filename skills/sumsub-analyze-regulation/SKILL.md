@@ -144,6 +144,8 @@ Custom forms for collecting applicant data not captured by document checks.
 
 **Risk scoring:** each answer option can carry a `score` (0–100); scores sum automatically and can be referenced in downstream transaction monitoring rules.
 
+**One questionnaire per level.** Group distinct topics (source of funds, PEP self-declaration, risk profile…) as separate **sections within a single questionnaire** — not as separate questionnaires. Default to one `QUESTIONNAIRE` step per level. A *separate* level legitimately gets its own questionnaire (e.g. an EDD level with an extended questionnaire) — that is still one-per-level, not an exception. Only plan multiple questionnaires on the *same* level if the user explicitly asks for it.
+
 ### C. Proof of Address Presets — `sumsub-create-poa-preset`
 
 Reusable configuration for what documents are accepted as proof of address.

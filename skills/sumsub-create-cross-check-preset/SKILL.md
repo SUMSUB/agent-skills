@@ -1,6 +1,6 @@
 ---
 name: sumsub-create-cross-check-preset
-description: Create or update a Sumsub cross-check preset (name/address comparison rules between POI and POA documents) via `POST/PATCH /resources/api/crossCheckPresets` and `GET /resources/api/crossCheckPresets/{id}`. TRIGGER **ONLY** when the user EXPLICITLY asks to override how cross-checks compare names or addresses — e.g. "switch name match to strict", "allow fuzzy address match", "ignore middle-name mismatch", "create a custom cross-check preset". SKIP by default — Sumsub ships sensible defaults tuned for the best conversion and approval rate, so most clients should NOT create a custom preset. SKIP for level creation (the default cross-check preset auto-applies to every level), for general KYC config, or any request that doesn't specifically name "cross-check rules", "name comparison", or "address comparison".
+description: Create or update a Sumsub cross-check preset (name/address comparison rules between POI and POA documents) via `POST/PATCH /resources/api/agent/crossCheckPresets` and `GET /resources/api/agent/crossCheckPresets/{id}`. TRIGGER **ONLY** when the user EXPLICITLY asks to override how cross-checks compare names or addresses — e.g. "switch name match to strict", "allow fuzzy address match", "ignore middle-name mismatch", "create a custom cross-check preset". SKIP by default — Sumsub ships sensible defaults tuned for the best conversion and approval rate, so most clients should NOT create a custom preset. SKIP for level creation (the default cross-check preset auto-applies to every level), for general KYC config, or any request that doesn't specifically name "cross-check rules", "name comparison", or "address comparison".
 allowed-tools: Read, Write, Bash
 ---
 
@@ -50,9 +50,9 @@ There are two preset modes:
 
 | Method | Path | When |
 |---|---|---|
-| `POST` | `/resources/api/crossCheckPresets` | Create a new preset. Body must NOT include `id`. |
-| `PATCH` | `/resources/api/crossCheckPresets` | Update an existing preset. Body MUST include `id`. |
-| `GET` | `/resources/api/crossCheckPresets/{id}` | Read one preset back (verify what landed; resolve `title` from a known `id`). |
+| `POST` | `/resources/api/agent/crossCheckPresets` | Create a new preset. Body must NOT include `id`. |
+| `PATCH` | `/resources/api/agent/crossCheckPresets` | Update an existing preset. Body MUST include `id`. |
+| `GET` | `/resources/api/agent/crossCheckPresets/{id}` | Read one preset back (verify what landed; resolve `title` from a known `id`). |
 
 All require permission `manageClientSettings`. Body shape is the
 [cross-check preset schema](references/cross-check-preset-schema.md) —

@@ -1,293 +1,160 @@
 #!/usr/bin/env python3
 """
-Expand a compact workflow spec (JSON on stdin) into a full Sumsub
-`ApplicantWorkflow` payload (JSON on stdout).
+Assemble a workflow spec (JSON on stdin) into a full Sumsub `ApplicantWorkflow`
+payload (JSON on stdout).
 
 Spec format: see SKILL.md.
 
-Highlights:
-- Node-type shortcuts (level / condition / actions / review / rejectFinal)
-- Action sub-item shortcuts (tag / note / sourceKey / riskLevel)
-- A `when:` expression mini-parser that emits Sumsub's nested
-  {or:[{negate:false, and:[{op, args:[{exp},{lit}]}]}]} AST.
-- `whenRaw:` escape hatch passes through an arbitrary AST untouched.
-- Graph validation: dangling edges, unknown level refs (warned), duplicate
-  ids, missing required fields per node type.
+This is a thin assembler + validator, NOT a translator. Nodes use the real
+schema node-type names; edge conditions are the real Sumsub AST authored
+directly (`{or:[{and:[{op, args:[{exp},{lit}]}]}]}`), where:
+  - `{exp: "<raw path>"}`  is an expression path, verbatim (incl. bracket paths).
+  - `{lit: "<json>"}`      is a literal, given **already JSON-encoded as a string**
+                           the way the API stores it ("USA" → "\"USA\"", 3 → "3",
+                           ["A","B"] → "[\"A\", \"B\"]"). The API rejects an
+                           un-encoded literal, so the encoding is mandatory.
+
+What the assembler does (and only this):
+- Validates node types, operators, action targetType, and `lit` length against
+  small built-in known sets, and rejects a top-level `Condition.negate`. (Review
+  labels, levels, and client lists are left to the API's authoritative validate.)
+- Enforces the edge invariant: only `exclusiveChoice` nodes may branch or gate;
+  every other node has at most one unconditional out-edge (no auto-insert — author
+  the choice explicitly).
+- Graph validation: dangling edges, duplicate ids, missing required fields,
+  kind/node-type coherence.
+- Convenience: node bodies may be flattened (`levelName`, `labels`, `actions`,
+  `buttonIds`, `disableGoBack`) or written in the real nested form; `on:` is a
+  shorthand for `reviewDecisions`.
 """
 import json
-import re
 import sys
-from collections import Counter
-from typing import Any
+from collections import Counter, defaultdict
 
-# ---------- enums & node-type mapping -----------------------------------------
-
-NODE_TYPE_ALIASES = {
-    "level":              "applicantLevel",
-    "condition":          "exclusiveChoice",
-    "actions":            "actions",
-    "review":             "manualReview",
-    "rejectFinal":        "finalRejection",
-    "actionLevel":        "actionApplicantLevel",
-    "actionCondition":    "actionExclusiveChoice",
-    "actionActions":      "actionActions",
-    "actionRejectFinal":  "actionFinalRejection",
+# ---------- known validation sets --------------------------------------------
+# Small, stable sets the assembler checks against so typos and unsupported
+# constructs fail here — with a precise, enumerated message — before any network
+# call. They mirror the API's enums; `POST /-/validate` is authoritative for
+# everything else (levels, client lists, review labels, transitions).
+KNOWN_NODE_TYPES = {
+    "actionActions", "actionApplicantLevel", "actionApplicantTransition",
+    "actionExclusiveChoice", "actionFinalRejection", "actionManualReview",
+    "actions", "applicantLevel", "exclusiveChoice", "finalRejection", "manualReview",
 }
-KNOWN_NODE_TYPES = set(NODE_TYPE_ALIASES.values())
+ACTION_PREFIXED_NODE_TYPES = {
+    "actionActions", "actionApplicantLevel", "actionApplicantTransition",
+    "actionExclusiveChoice", "actionFinalRejection", "actionManualReview",
+}
+REVIEW_DECISIONS = {"approved", "rejected", "resubmission"}
+TARGET_TYPES = {"applicant", "applicantAction"}
+OPERATORS = {
+    "eq", "eqIgnoreCase", "neIgnoreCase", "eqOrNull", "eqIgnoreCaseOrNull", "ne",
+    "lt", "lte", "gt", "gte", "match", "notMatch", "in", "notIn",
+    "startsWith", "notStartsWith", "endsWith", "notEndsWith", "empty", "notEmpty",
+    "contains", "notContains", "containsAny", "notContainsAny", "containsAll",
+    "containsOnly",
+}
+RESERVED_OPERATORS = {"call"}
+
+# Node-type groups (real schema names). Sumsub rejects mixing standard and action
+# node types in one workflow: action-* types only belong in an action workflow
+# (kind="actions"); the standard types only in a verification workflow
+# (kind="default"|"test").
 LEVEL_NODE_TYPES = {"applicantLevel", "actionApplicantLevel"}
 ACTIONS_NODE_TYPES = {"actions", "actionActions"}
 REJECT_NODE_TYPES = {"finalRejection", "actionFinalRejection"}
-# Sumsub rejects mixing standard and action node types in one workflow.
-# action-* types only belong in an action workflow (kind="actions"); the rest
-# only belong in a verification workflow (kind="default" or "test").
-ACTION_PREFIXED_NODE_TYPES = {
-    "actionApplicantLevel",
-    "actionExclusiveChoice",
-    "actionActions",
-    "actionFinalRejection",
-}
-
-REVIEW_DECISIONS = {"approved", "rejected", "resubmission"}
-
-ACTION_ITEM_TYPES = {
-    "tag":       ("tags",      lambda v: {"type": "tags",      "tags":      {"tags": _list(v)}}),
-    "note":      ("notes",     lambda v: {"type": "notes",     "notes":     {"note": str(v)}}),
-    "sourceKey": ("sourceKey", lambda v: {"type": "sourceKey", "sourceKey": {"sourceKey": str(v)}}),
-    "riskLevel": ("riskLevel", lambda v: {"type": "riskLevel"}),
-}
+REVIEW_NODE_TYPES = {"manualReview", "actionManualReview"}
+CHOICE_NODE_TYPES = {"exclusiveChoice", "actionExclusiveChoice"}
+TRANSITION_NODE_TYPES = {"actionApplicantTransition"}
 
 
 def _list(v):
     return v if isinstance(v, list) else [v]
 
 
-# ---------- expression mini-parser --------------------------------------------
+# ---------- action item builders ----------------------------------------------
+# Author-supported actions: tags / notes / sourceKey. (kytCase is postponed — no
+# public API for blueprintId yet; riskScore/recheck are not supported.)
 
-# Tokens: identifiers/expression paths, operators, literals, parens, AND/OR, etc.
-_TOKEN_RE = re.compile(
-    r"""
-    \s*(?:
-        (?P<str>"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*') |
-        (?P<num>-?\d+(?:\.\d+)?) |
-        (?P<lbr>\[) | (?P<rbr>\]) |
-        (?P<lparen>\() | (?P<rparen>\)) |
-        (?P<comma>,) |
-        (?P<op>!=|<=|>=|=|<|>) |
-        (?P<word>[A-Za-z_][A-Za-z0-9_.\-]*)
-    )
-    """,
-    re.VERBOSE,
-)
-
-
-class ExprError(ValueError):
-    pass
+def _build_tags_action(v) -> dict:
+    """`{tag: [...]}` (add) or `{tag: {add:[...], remove:[...], target:applicant|applicantAction}}`."""
+    body = {}
+    if isinstance(v, dict):
+        if v.get("add") is not None:
+            body["tags"] = _list(v["add"])
+        if v.get("remove") is not None:
+            body["tagsToRemove"] = _list(v["remove"])
+        if not body.get("tags") and not body.get("tagsToRemove"):
+            raise ValueError("tag action needs 'add' and/or 'remove'")
+        _set_target(body, v)
+    else:
+        body["tags"] = _list(v)
+    return {"type": "tags", "tags": body}
 
 
-def _tokenize(s: str):
-    pos = 0
-    tokens = []
-    while pos < len(s):
-        m = _TOKEN_RE.match(s, pos)
-        if not m:
-            raise ExprError(f"unexpected character at offset {pos}: {s[pos:pos+20]!r}")
-        if m.end() == pos:
-            raise ExprError(f"zero-width match at offset {pos}")
-        # Identify which group matched
-        for name in ("str", "num", "lbr", "rbr", "lparen", "rparen", "comma", "op", "word"):
-            val = m.group(name)
-            if val is not None:
-                tokens.append((name, val))
-                break
-        pos = m.end()
-    return tokens
+def _build_notes_action(v) -> dict:
+    """`{note: "text"}` or `{note: {text:"...", target:applicant|applicantAction}}`."""
+    if isinstance(v, dict):
+        text = v.get("text", v.get("note"))
+        if not text:
+            raise ValueError("note action needs 'text'")
+        body = {"note": str(text)}
+        _set_target(body, v)
+    else:
+        body = {"note": str(v)}
+    return {"type": "notes", "notes": body}
 
 
-def _encode_lit(value: str, raw_kind: str) -> str:
-    """Sumsub stores lit values as JSON-encoded strings ('\"USA\"', '3', 'true', '[\"a\",\"b\"]')."""
-    if raw_kind == "str":
-        # strip quotes from source token
-        inner = value[1:-1]
-        # unescape backslashes the lexer allowed
-        inner = bytes(inner, "utf-8").decode("unicode_escape")
-        return json.dumps(inner)
-    if raw_kind == "num":
-        # keep as numeric literal
-        return value
-    if raw_kind == "bool":
-        return value  # "true"/"false"
-    if raw_kind == "null":
-        return "null"
-    raise ExprError(f"unsupported literal kind {raw_kind!r}")
+def _set_target(body: dict, src: dict) -> None:
+    tgt = src.get("target") or src.get("targetType")
+    if tgt is None:
+        return
+    if tgt not in TARGET_TYPES:
+        raise ValueError(f"targetType {tgt!r} not in {sorted(TARGET_TYPES)}")
+    body["targetType"] = tgt
 
 
-def _atom_to_lit(tok):
-    """Convert a single token to a Sumsub `{lit: "..."}` value."""
-    kind, val = tok
-    if kind == "str":
-        return {"lit": _encode_lit(val, "str")}
-    if kind == "num":
-        return {"lit": val}
-    if kind == "word":
-        # bare word: treat as string literal (matches dashboard UX where USA = "USA")
-        if val.lower() in ("true", "false"):
-            return {"lit": val.lower()}
-        if val.lower() == "null":
-            return {"lit": "null"}
-        return {"lit": json.dumps(val)}
-    raise ExprError(f"expected literal, got {tok!r}")
+ACTION_ITEM_TYPES = {
+    "tag":       _build_tags_action,
+    "note":      _build_notes_action,
+    "sourceKey": lambda v: {"type": "sourceKey", "sourceKey": {"sourceKey": str(v)}},
+}
 
 
-def _parse_array(toks, i):
-    """Parse `[ x, y, z ]` starting after the `[`. Returns (json_array_string, new_i)."""
-    items = []
-    expecting_value = True
-    while i < len(toks):
-        kind, val = toks[i]
-        if kind == "rbr":
-            if expecting_value and items:
-                raise ExprError("trailing comma in array literal")
-            return ("[" + ", ".join(items) + "]", i + 1)
-        if expecting_value:
-            lit = _atom_to_lit(toks[i])["lit"]
-            items.append(lit)
-            expecting_value = False
-            i += 1
-        else:
-            if kind != "comma":
-                raise ExprError(f"expected ',' or ']' in array; got {val!r}")
-            i += 1
-            expecting_value = True
-    raise ExprError("unterminated array literal")
+# ---------- condition validation ----------------------------------------------
+
+# Maximum length of a single `lit` value in a condition argument. A literal longer
+# than this almost always signals a mistake (an expression mistyped as a string, a
+# pasted blob) rather than a real comparison value.
+MAX_LIT_LENGTH = 1024
 
 
-def _consume_comparison(toks, i):
-    """Parse a single comparison clause, returning (clause_dict, new_i)."""
-    # Prefix forms: `not empty <expr>` and `empty <expr>`
-    if i < len(toks) and toks[i][0] == "word":
-        head = toks[i][1].lower()
-        if head == "notempty":
-            i += 1
-            if i >= len(toks) or toks[i][0] != "word":
-                raise ExprError("notEmpty expects an expression path after it")
-            exp_path = toks[i][1]; i += 1
-            return ({"op": "notEmpty", "args": [{"exp": exp_path}]}, i)
-        if head == "empty":
-            i += 1
-            if i >= len(toks) or toks[i][0] != "word":
-                raise ExprError("empty expects an expression path after it")
-            exp_path = toks[i][1]; i += 1
-            return ({"op": "empty", "args": [{"exp": exp_path}]}, i)
-        if (
-            head == "not"
-            and i + 1 < len(toks)
-            and toks[i + 1][0] == "word"
-            and toks[i + 1][1].lower() == "empty"
-        ):
-            i += 2
-            if i >= len(toks) or toks[i][0] != "word":
-                raise ExprError("not empty expects an expression path after it")
-            exp_path = toks[i][1]; i += 1
-            return ({"op": "notEmpty", "args": [{"exp": exp_path}]}, i)
-
-    # Standard: <expr> <operator> <literal-or-array>
-    if i >= len(toks) or toks[i][0] != "word":
-        raise ExprError(f"expected expression path at token {i}: {toks[i:i+3]!r}")
-    exp_path = toks[i][1]
-    i += 1
-
-    if i >= len(toks):
-        raise ExprError(f"expected operator after {exp_path!r}")
-
-    kind, val = toks[i]
-    # Word-based operators: in / not / contains / starts / empty
-    if kind == "word":
-        lw = val.lower()
-        if lw == "in":
-            i += 1
-            if i >= len(toks) or toks[i][0] != "lbr":
-                raise ExprError("'in' must be followed by [list]")
-            arr, i = _parse_array(toks, i + 1)
-            return ({"op": "in", "args": [{"exp": exp_path}, {"lit": arr}]}, i)
-        if lw == "not":
-            i += 1
-            if i >= len(toks):
-                raise ExprError("'not' must be followed by 'in', 'contains', 'empty', or 'starts'")
-            sub = toks[i][1].lower() if toks[i][0] == "word" else None
-            if sub == "in":
-                i += 1
-                if i >= len(toks) or toks[i][0] != "lbr":
-                    raise ExprError("'not in' must be followed by [list]")
-                arr, i = _parse_array(toks, i + 1)
-                return ({"op": "notIn", "args": [{"exp": exp_path}, {"lit": arr}]}, i)
-            if sub == "contains":
-                i += 1
-                rhs = _atom_to_lit(toks[i]); i += 1
-                return ({"negate": True, "op": "contains", "args": [{"exp": exp_path}, rhs]}, i)
-            if sub == "starts":
-                i += 1
-                if i >= len(toks) or toks[i][0] != "word" or toks[i][1].lower() != "with":
-                    raise ExprError("'not starts' must be followed by 'with <value>'")
-                i += 1
-                rhs = _atom_to_lit(toks[i]); i += 1
-                return ({"op": "notStartsWith", "args": [{"exp": exp_path}, rhs]}, i)
-            if sub == "empty":
-                i += 1
-                return ({"op": "notEmpty", "args": [{"exp": exp_path}]}, i)
-            raise ExprError(f"'not' must be followed by 'in', 'contains', 'starts', or 'empty'; got {sub!r}")
-        if lw == "contains":
-            i += 1
-            rhs = _atom_to_lit(toks[i]); i += 1
-            return ({"op": "contains", "args": [{"exp": exp_path}, rhs]}, i)
-        if lw == "starts":
-            i += 1
-            if i >= len(toks) or toks[i][0] != "word" or toks[i][1].lower() != "with":
-                raise ExprError("'starts' must be followed by 'with <value>'")
-            i += 1
-            rhs = _atom_to_lit(toks[i]); i += 1
-            return ({"op": "startsWith", "args": [{"exp": exp_path}, rhs]}, i)
-        if lw == "empty":
-            return ({"op": "empty", "args": [{"exp": exp_path}]}, i + 1)
-
-    if kind == "op":
-        op_map = {"=": "eq", "==": "eq", "!=": "ne", ">": "gt", "<": "lt", ">=": "gte", "<=": "lte"}
-        sumsub_op = op_map[val]
-        i += 1
-        if i >= len(toks):
-            raise ExprError(f"expected literal after {val!r}")
-        rhs = _atom_to_lit(toks[i]); i += 1
-        return ({"op": sumsub_op, "args": [{"exp": exp_path}, rhs]}, i)
-
-    raise ExprError(f"unrecognized operator {val!r} after expression {exp_path!r}")
-
-
-def _parse_and_chain(toks, i):
-    """Parse a chain of AND'd comparisons; returns (and_list, new_i)."""
-    items = []
-    clause, i = _consume_comparison(toks, i)
-    items.append(clause)
-    while i < len(toks) and toks[i][0] == "word" and toks[i][1].lower() == "and":
-        i += 1
-        clause, i = _consume_comparison(toks, i)
-        items.append(clause)
-    return (items, i)
-
-
-def parse_when(expr: str):
-    """Parse a `when:` expression string into Sumsub's edge-condition AST."""
-    if not expr.strip():
-        raise ExprError("empty expression")
-    toks = _tokenize(expr)
-    branches = []
-    and_clauses, i = _parse_and_chain(toks, 0)
-    branches.append({"negate": False, "and": and_clauses})
-    while i < len(toks) and toks[i][0] == "word" and toks[i][1].lower() == "or":
-        i += 1
-        and_clauses, i = _parse_and_chain(toks, i)
-        branches.append({"negate": False, "and": and_clauses})
-    if i != len(toks):
-        raise ExprError(f"trailing tokens after expression: {toks[i:]!r}")
-    return {"or": branches}
+def _validate_condition_ops(cond) -> None:
+    """Walk a hand-authored condition AST and:
+      - reject any `op` not in the known operator set (catches typos and the reserved
+        `call` op),
+      - reject a top-level `Condition.negate` — it is not UI-supported; negate via
+        the not* operators (notContains, notIn, notEmpty, ne, …) instead,
+      - reject a `lit` value longer than MAX_LIT_LENGTH.
+    `lit` values are passed through verbatim (the author supplies them already
+    JSON-encoded, as the API stores them); this function does not transform them."""
+    if not isinstance(cond, dict):
+        return
+    if cond.get("negate"):
+        raise ValueError("top-level Condition.negate is not supported; use a not* operator instead")
+    for branch in cond.get("or", []) or []:
+        for crit in (branch.get("and", []) if isinstance(branch, dict) else []) or []:
+            if not isinstance(crit, dict):
+                continue
+            op = crit.get("op")
+            if op is not None:
+                if op in RESERVED_OPERATORS:
+                    raise ValueError(f"operator {op!r} is reserved and not exposed by this skill")
+                if op not in OPERATORS:
+                    raise ValueError(f"unknown operator {op!r}; allowed: {sorted(OPERATORS)}")
+            for arg in crit.get("args", []) or []:
+                if isinstance(arg, dict) and "lit" in arg and isinstance(arg["lit"], str) and len(arg["lit"]) > MAX_LIT_LENGTH:
+                    raise ValueError(f"literal value exceeds the {MAX_LIT_LENGTH}-character limit ({len(arg['lit'])} chars)")
 
 
 # ---------- node / edge / action builders -------------------------------------
@@ -298,9 +165,11 @@ def _build_action_item(item: dict) -> dict:
         raise ValueError(f"action item must be a single-key dict; got {item!r}")
     key, val = next(iter(item.items()))
     if key not in ACTION_ITEM_TYPES:
-        raise ValueError(f"unknown action item kind {key!r}; allowed: {sorted(ACTION_ITEM_TYPES)}")
-    _, builder = ACTION_ITEM_TYPES[key]
-    return builder(val)
+        raise ValueError(
+            f"unknown or unsupported action item kind {key!r}; allowed: {sorted(ACTION_ITEM_TYPES)}. "
+            f"(kytCase is not author-supported yet; riskScore/recheck are not supported.)"
+        )
+    return ACTION_ITEM_TYPES[key](val)
 
 
 def _build_node(spec: dict) -> dict:
@@ -308,45 +177,54 @@ def _build_node(spec: dict) -> dict:
         raise ValueError(f"node missing 'id': {spec!r}")
     if "type" not in spec:
         raise ValueError(f"node {spec['id']!r} missing 'type'")
-    alias = spec["type"]
-    real_type = NODE_TYPE_ALIASES.get(alias, alias)
-    if real_type not in KNOWN_NODE_TYPES:
-        raise ValueError(f"node {spec['id']!r}: unknown type {alias!r}; allowed: {sorted(NODE_TYPE_ALIASES)}")
+    node_type = spec["type"]
+    if node_type not in KNOWN_NODE_TYPES:
+        raise ValueError(f"node {spec['id']!r}: unknown type {node_type!r}; allowed: {sorted(KNOWN_NODE_TYPES)}")
 
-    node = {"id": spec["id"], "type": real_type}
+    node = {"id": spec["id"], "type": node_type}
     if spec.get("name") is not None:
         node["name"] = spec["name"]
+    if spec.get("description") is not None:
+        node["description"] = str(spec["description"])
 
-    if real_type in LEVEL_NODE_TYPES:
+    if node_type in LEVEL_NODE_TYPES:
         level_name = spec.get("levelName") or (spec.get("applicantLevel") or {}).get("levelName")
         if not level_name:
-            raise ValueError(f"node {spec['id']!r}: type {alias} requires 'levelName'")
+            raise ValueError(f"node {spec['id']!r}: type {node_type} requires 'levelName'")
         node["applicantLevel"] = {"levelName": level_name}
         if spec.get("disableGoBack") is not None:
             node["disableGoBack"] = bool(spec["disableGoBack"])
 
-    elif real_type in ACTIONS_NODE_TYPES:
+    elif node_type in TRANSITION_NODE_TYPES:
+        # actionApplicantTransition: hands the verification process back from an
+        # action workflow to the default workflow, entering the named level.
+        level_name = spec.get("levelName") or (spec.get("applicantLevel") or {}).get("levelName")
+        if not level_name:
+            raise ValueError(f"node {spec['id']!r}: type {node_type} requires 'levelName' (the default-workflow level to transition into)")
+        node["applicantTransition"] = {"applicantLevel": {"levelName": level_name}}
+
+    elif node_type in ACTIONS_NODE_TYPES:
         items_in = spec.get("actions") or []
         if not items_in:
-            raise ValueError(f"node {spec['id']!r}: type {alias} requires non-empty 'actions'")
+            raise ValueError(f"node {spec['id']!r}: type {node_type} requires non-empty 'actions'")
         node["actions"] = {"items": [_build_action_item(it) for it in items_in]}
 
-    elif real_type in REJECT_NODE_TYPES:
+    elif node_type in REJECT_NODE_TYPES:
         labels = spec.get("labels")
         button_ids = spec.get("buttonIds")
         if not labels and not button_ids:
-            raise ValueError(f"node {spec['id']!r}: type {alias} requires 'labels' or 'buttonIds'")
+            raise ValueError(f"node {spec['id']!r}: type {node_type} requires 'labels' or 'buttonIds'")
         node["finalRejection"] = {}
         if labels:
             node["finalRejection"]["reviewRejectLabels"] = list(labels)
         if button_ids:
             node["finalRejection"]["reviewButtonIds"] = list(button_ids)
 
-    elif real_type in ("exclusiveChoice", "actionExclusiveChoice", "manualReview"):
-        pass  # only id / type / name
+    elif node_type in CHOICE_NODE_TYPES or node_type in REVIEW_NODE_TYPES:
+        pass  # only id / type / name / description
 
     # Pass-through unknown keys (escape hatch)
-    handled = {"id", "type", "name", "levelName", "applicantLevel",
+    handled = {"id", "type", "name", "description", "levelName", "applicantLevel",
                "actions", "labels", "buttonIds", "disableGoBack"}
     for k, v in spec.items():
         if k in handled or v is None:
@@ -368,7 +246,7 @@ def _build_edge(spec: dict, node_ids: set) -> dict:
     if spec.get("id"):
         edge["id"] = spec["id"]
 
-    # reviewDecisions ('on:' shortcut)
+    # reviewDecisions ('on:' is a shorthand for the real `reviewDecisions`)
     on = spec.get("on") or spec.get("reviewDecisions")
     if on is not None:
         on_list = _list(on)
@@ -377,36 +255,79 @@ def _build_edge(spec: dict, node_ids: set) -> dict:
                 raise ValueError(f"edge {spec['from']}->{spec['to']}: reviewDecisions {v!r} not in {sorted(REVIEW_DECISIONS)}")
         edge["reviewDecisions"] = on_list
 
-    # when: expression or whenRaw: AST
-    if spec.get("whenRaw") is not None:
-        edge["condition"] = spec["whenRaw"]
-    elif spec.get("when") is not None:
+    # Guard the removed expression shortcuts so old specs fail loudly, not silently.
+    for legacy in ("when", "whenRaw"):
+        if legacy in spec:
+            raise ValueError(
+                f"edge {spec['from']}->{spec['to']}: '{legacy}:' is no longer supported. "
+                f"Write the condition AST directly under 'condition:' "
+                f"(e.g. {{op: eq, args: [{{exp: \"applicant.country\"}}, {{lit: \"\\\"USA\\\"\"}}]}}); see SKILL.md."
+            )
+
+    # condition: the real Sumsub AST, authored directly and passed through verbatim.
+    if spec.get("condition") is not None:
+        edge["condition"] = spec["condition"]
         try:
-            edge["condition"] = parse_when(spec["when"])
-        except ExprError as e:
-            raise ValueError(f"edge {spec['from']}->{spec['to']}: when expression error: {e}")
+            _validate_condition_ops(edge["condition"])
+        except ValueError as e:
+            raise ValueError(f"edge {spec['from']}->{spec['to']}: {e}")
 
     return edge
 
 
+# ---------- edge invariant: only choices branch ------------------------------
+
+def _enforce_edge_invariant(nodes: list, edges: list) -> None:
+    """Only `exclusiveChoice`/`actionExclusiveChoice` nodes may branch (>1 out-edge)
+    or gate (`reviewDecisions`/`condition` on an out-edge). Every other node has at
+    most one *unconditional* out-edge — a level/action transition is singular and
+    plain.
+
+    To branch a level's outcome, author an explicit choice and put the branches on
+    *its* out-edges; the builder never synthesises a choice for you. `reviewDecisions`
+    on a choice out-edge match the review decision of the upstream level.
+    """
+    type_of = {n["id"]: n["type"] for n in nodes}
+    grouped = defaultdict(list)
+    for e in edges:
+        grouped[e["from"]].append(e)
+    for nid, outs in grouped.items():
+        if type_of.get(nid) in CHOICE_NODE_TYPES:
+            continue
+        if len(outs) > 1:
+            raise ValueError(
+                f"node {nid!r} has {len(outs)} out-edges — only an exclusiveChoice may "
+                f"branch. Route its outcome through a choice: add an exclusiveChoice, point "
+                f"{nid!r} at it with one plain edge, and put the branches on the choice's "
+                f"out-edges."
+            )
+        gated = next(
+            (e for e in outs if ("reviewDecisions" in e) or ("condition" in e)), None
+        )
+        if gated is not None:
+            raise ValueError(
+                f"edge {nid}->{gated['to']}: a {type_of.get(nid)!r} node's out-edge is "
+                f"unconditional — it can't carry on:/condition. Branch the outcome at an "
+                f"exclusiveChoice: {nid} -> <choice> (one plain edge), then put on:/condition "
+                f"on the choice's out-edges."
+            )
+
+
 # ---------- top-level --------------------------------------------------------
 
-# The API's `name` field is a fixed enum naming the *kind* of workflow.
-# User-facing names go into `title`. Compact spec exposes this as `kind:`.
+# The API's `name` field is a fixed enum naming the *kind* of workflow. There is
+# exactly one workflow of each kind; a save creates a new draft revision of it.
+# Compact spec exposes this as `kind:`. (`title` exists in the schema but is unused
+# by the engine, so the builder neither requires nor emits it.)
 WORKFLOW_KINDS = ("default", "test", "actions")
 
 
 def build_workflow(spec: dict) -> dict:
-    title = spec.get("title") or spec.get("name")
-    if not title:
-        raise ValueError("workflow spec must have 'title' (the human-readable name)")
-
     kind = spec.get("kind", "default")
     if kind not in WORKFLOW_KINDS:
         raise ValueError(
             f"workflow 'kind' must be one of {WORKFLOW_KINDS}; got {kind!r}. "
-            f"Note: the API's `name` field is an enum (default/test/actions), "
-            f"not a slug. Put your workflow's human-readable name in `title:`."
+            f"The API's `name` field is an enum (default/test/actions), not a slug."
         )
 
     nodes_in = spec.get("nodes") or []
@@ -429,8 +350,9 @@ def build_workflow(spec: dict) -> dict:
         if non_action:
             raise ValueError(
                 f"kind='actions' workflow contains non-action node(s) {non_action}. "
-                f"Use the action-* node type aliases (actionLevel, actionCondition, "
-                f"actionActions, actionRejectFinal) inside an action workflow."
+                f"Inside an action workflow use the action-* node types "
+                f"(actionApplicantLevel, actionExclusiveChoice, actionActions, "
+                f"actionManualReview, actionFinalRejection, actionApplicantTransition)."
             )
     else:  # default / test — standard verification workflow
         action_only = [
@@ -439,50 +361,78 @@ def build_workflow(spec: dict) -> dict:
         if action_only:
             raise ValueError(
                 f"kind={kind!r} workflow contains action-* node(s) {action_only}. "
-                f"Use plain aliases (level, condition, actions, rejectFinal) for a "
-                f"verification workflow, or set kind='actions' for a post-verification "
-                f"action workflow."
+                f"Use standard node types (applicantLevel, exclusiveChoice, actions, "
+                f"manualReview, finalRejection) for a verification workflow, or set "
+                f"kind='actions' for a post-verification action workflow."
+            )
+        # `applicantAction` tag/note targeting is only available in action workflows,
+        # because only there is the applicantAction in the evaluation context.
+        bad_target = [
+            n["id"] for n in nodes
+            for it in (n.get("actions", {}).get("items", []) if n["type"] in ACTIONS_NODE_TYPES else [])
+            for fam in ("tags", "notes")
+            if it.get(fam, {}).get("targetType") == "applicantAction"
+        ]
+        if bad_target:
+            raise ValueError(
+                f"kind={kind!r} workflow uses targetType='applicantAction' on node(s) {bad_target}. "
+                f"That target is only available inside an action workflow (kind='actions')."
             )
 
     node_ids = {n["id"] for n in nodes}
     edges_in = spec.get("edges") or []
     edges = [_build_edge(e, node_ids) for e in edges_in]
 
-    # Every condition node should have ≥1 outgoing edge with a `condition`
-    cond_types = {"exclusiveChoice", "actionExclusiveChoice"}
+    # Only choice nodes may branch or gate; every other node has one plain out-edge.
+    _enforce_edge_invariant(nodes, edges)
+
+    # Every condition node should have ≥1 outgoing edge that actually branches —
+    # a `condition` or a `reviewDecisions` ('on:') gate.
     for n in nodes:
-        if n["type"] in cond_types:
+        if n["type"] in CHOICE_NODE_TYPES:
             outs = [e for e in edges if e["from"] == n["id"]]
             if not outs:
                 raise ValueError(f"condition node {n['id']!r} has no outgoing edges")
-            if not any("condition" in e for e in outs):
+            if not any(("condition" in e) or ("reviewDecisions" in e) for e in outs):
                 raise ValueError(
                     f"condition node {n['id']!r} must have at least one outgoing edge "
-                    f"with a 'when:' clause"
+                    f"with a 'condition' clause or an 'on:' (reviewDecisions) gate"
                 )
+
+    revision_status = spec.get("revisionStatus", "draft")
+    if revision_status != "draft":
+        raise ValueError(
+            f"revisionStatus must be 'draft' on create (got {revision_status!r}); "
+            "the create/update POST only writes drafts — publishing is a separate, gated "
+            "step via PUT /{id}/revisionStatus (see the skill's Danger section)"
+        )
 
     payload = {
         "name": kind,
-        "title": title,
-        "revisionStatus": spec.get("revisionStatus", "draft"),
+        "revisionStatus": revision_status,
         "nodes": nodes,
         "edges": edges,
     }
     # Preserve id for upsert (POST with existing id updates in place).
     if spec.get("id") is not None:
         payload["id"] = spec["id"]
-    if spec.get("notices") is not None:
-        payload["notices"] = spec["notices"]
-    if spec.get("layout") is not None:
-        payload["layout"] = spec["layout"]
-    if spec.get("desc") is not None:
-        payload["desc"] = spec["desc"]
+    # UpsertApplicantWorkflowDto accepts only {name, nodes, edges, id, revision,
+    # revisionStatus, title}. `notices` is response-only, `layout` is server
+    # auto-arranged, and `desc` no longer exists in the schema — none are sent.
     return payload
 
 
 def main():
-    spec = json.load(sys.stdin)
-    payload = build_workflow(spec)
+    try:
+        spec = json.load(sys.stdin)
+    except ValueError as e:
+        print(f"error: invalid JSON on stdin: {e}", file=sys.stderr)
+        sys.exit(2)
+    try:
+        payload = build_workflow(spec)
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        sys.exit(2)
     json.dump(payload, sys.stdout, indent=2)
     sys.stdout.write("\n")
 

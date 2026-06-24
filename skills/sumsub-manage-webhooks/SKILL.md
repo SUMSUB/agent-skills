@@ -1,24 +1,23 @@
 ---
 name: sumsub-manage-webhooks
-description: Manage Sumsub `clientWebhooks` (event subscriptions for applicantReviewed / applicantPending / kytTxn / etc.) via `/resources/clientWebhooks`. **Sandbox only** — production webhooks must be created by a human directly in the Sumsub dashboard. TRIGGER when the user asks to "list / retrieve / show webhooks", "create / add / register a webhook", "update / edit / change a webhook target / event list / secret / signature algorithm", or "disable / re-enable a webhook" against their sandbox tenant. SKIP for production webhook setup (refer the user to the dashboard), for unrelated webhook surfaces (Stripe / videoIdent / Fireblocks / NFC / partner-specific receive paths under `/resources/webhooks/...`), for testing one-off delivery (use the `inspectionCallbacks/testWebhook` endpoint directly), and for KYT-only webhook routing (that's managed in the Sumsub dashboard's KYT section). The public API does not expose delete or per-webhook delivery stats — for those, refer the user to the Sumsub dashboard UI.
+description: Manage Sumsub `clientWebhooks` (event subscriptions for applicantReviewed / applicantPending / kytTxn / etc.) — reads via `/resources/api/clientWebhooks`, writes via `/resources/api/agent/clientWebhooks`. **Sandbox only** — production webhooks must be created by a human directly in the Sumsub dashboard. TRIGGER when the user asks to "list / retrieve / show webhooks", "create / add / register a webhook", "update / edit / change a webhook target / event list / secret / signature algorithm", or "disable / re-enable a webhook" against their sandbox tenant. SKIP for production webhook setup (refer the user to the dashboard), for unrelated webhook surfaces (Stripe / videoIdent / Fireblocks / NFC / partner-specific receive paths under `/resources/webhooks/...`), for testing one-off delivery (use the `inspectionCallbacks/testWebhook` endpoint directly), and for KYT-only webhook routing (that's managed in the Sumsub dashboard's KYT section). The public API does not expose delete or per-webhook delivery stats — for those, refer the user to the Sumsub dashboard UI.
 allowed-tools: Read, Write, Bash
 ---
 
 # Sumsub — Manage Client Webhooks
 
 Lists, retrieves, creates, updates, and disables/enables `ClientWebhook`
-event subscriptions via `/resources/clientWebhooks`.
+event subscriptions. Reads use `/resources/api/clientWebhooks`; writes use
+`/resources/api/agent/clientWebhooks`.
 
 ## Endpoints
 
-The public API resource (`ClientWebhookApiResource`) exposes:
-
 | Verb | Path | Purpose |
 |---|---|---|
-| `GET` | `/resources/clientWebhooks` | List webhooks on the tenant. Returns `EntityResult<ClientWebhook>` (`{list: {items: [...] }}`). **Capped at the oldest 50** server-side (`getOldest50`). |
-| `GET` | `/resources/clientWebhooks/{id}` | Read one webhook by id. Use this to resolve a `name` from a known id, or to verify what landed after a write. |
-| `POST` | `/resources/clientWebhooks` | Create. Body must NOT include `id` — server assigns it. (The model layer still does an internal upsert, but the request DTO is `ClientWebhookCreateRequest` without `id`.) |
-| `PATCH` | `/resources/clientWebhooks` | Update an existing webhook (by `id` in body). DTO is `ClientWebhookUpdateRequest`. |
+| `GET` | `/resources/api/clientWebhooks` | List webhooks on the tenant. Returns `EntityResult<ClientWebhook>` (`{list: {items: [...] }}`). **Capped at the oldest 50** server-side (`getOldest50`). |
+| `GET` | `/resources/api/clientWebhooks/{id}` | Read one webhook by id. Use this to resolve a `name` from a known id, or to verify what landed after a write. |
+| `POST` | `/resources/api/agent/clientWebhooks` | Create. Body must NOT include `id` — server assigns it. (The model layer still does an internal upsert, but the request DTO is `ClientWebhookCreateRequest` without `id`.) |
+| `PATCH` | `/resources/api/agent/clientWebhooks` | Update an existing webhook (by `id` in body). DTO is `ClientWebhookUpdateRequest`. |
 
 Permission required: `manageClientSettings`.
 

@@ -41,7 +41,7 @@ if [[ ! -s "${PAYLOAD}" ]]; then
 fi
 
 METHOD="POST"
-PATH_Q="/resources/api/poaStepSettings"
+PATH_Q="/resources/api/agent/poaStepSettings"
 TS="$(date -u +%s)"
 
 SIG="$(
@@ -55,7 +55,7 @@ curl -sS -X "${METHOD}" \
   -H "X-App-Access-Ts: ${TS}" \
   -H "X-App-Access-Sig: ${SIG}" \
   -H "X-Agent-Source: sumsub-skills" \
-  -H "X-Agent-Source-Ver: 1.0.1" \
+  -H "X-Agent-Source-Ver: 1.1.0" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
   --data-binary "@${PAYLOAD}" \

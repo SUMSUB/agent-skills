@@ -1,6 +1,6 @@
 {
   "name": "@sumsub/agent-skills",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Agent Skills for the Sumsub API — applicant levels, questionnaires, PoA presets, workflows, transaction monitoring, WebSDK integration, and regulation analysis.",
   "keywords": [
     "skill",

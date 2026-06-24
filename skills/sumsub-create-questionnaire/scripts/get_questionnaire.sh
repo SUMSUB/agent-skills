@@ -33,7 +33,7 @@ fi
 ID_ENCODED=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1")
 
 METHOD="GET"
-PATH_Q="/resources/api/questionnaires/${ID_ENCODED}"
+PATH_Q="/resources/api/agent/questionnaires/${ID_ENCODED}"
 TS="$(date -u +%s)"
 
 SIG="$(

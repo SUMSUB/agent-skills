@@ -48,7 +48,7 @@ if python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d.
 fi
 
 METHOD="POST"
-PATH_Q="/resources/api/crossCheckPresets"
+PATH_Q="/resources/api/agent/crossCheckPresets"
 TS="$(date -u +%s)"
 
 SIG="$(
@@ -63,6 +63,8 @@ curl -sS -X "${METHOD}" \
   -H "X-App-Access-Sig: ${SIG}" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
+  -H "X-Agent-Source: sumsub-skills" \
+  -H "X-Agent-Source-Ver: 1.1.0" \
   --data-binary "@${PAYLOAD}" \
   -w '\nHTTP %{http_code}\n' \
   "${BASE%/}${PATH_Q}"

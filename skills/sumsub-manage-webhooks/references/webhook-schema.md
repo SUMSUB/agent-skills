@@ -40,10 +40,10 @@ The public API resource (`ClientWebhookApiResource`, App Token auth, `manageClie
 
 | Verb | Path | Notes |
 |---|---|---|
-| `GET` | `/resources/clientWebhooks` | Returns `EntityResult<ClientWebhook>` — `{list: {items: [ClientWebhook]}}`. **Capped at the oldest 50** server-side (`getOldest50`). |
-| `GET` | `/resources/clientWebhooks/{id}` | Returns one `ClientWebhook` by id. Use for confirmation after a write or to resolve `name` from a known id. |
-| `POST` | `/resources/clientWebhooks` | Create. Body MUST NOT include `id` (DTO: `ClientWebhookCreateRequest`). Server assigns it. |
-| `PATCH` | `/resources/clientWebhooks` | Update an existing webhook (by `id` in body, DTO: `ClientWebhookUpdateRequest`). |
+| `GET` | `/resources/api/clientWebhooks` | Returns `EntityResult<ClientWebhook>` — `{list: {items: [ClientWebhook]}}`. **Capped at the oldest 50** server-side (`getOldest50`). |
+| `GET` | `/resources/api/clientWebhooks/{id}` | Returns one `ClientWebhook` by id. Use for confirmation after a write or to resolve `name` from a known id. |
+| `POST` | `/resources/api/agent/clientWebhooks` | Create. Body MUST NOT include `id` (DTO: `ClientWebhookCreateRequest`). Server assigns it. |
+| `PATCH` | `/resources/api/agent/clientWebhooks` | Update an existing webhook (by `id` in body, DTO: `ClientWebhookUpdateRequest`).|
 
 No public-API `DELETE` and no `/stats` endpoint — use the Sumsub dashboard UI for those operations. The skill's `disable` / `enable` subcommands work via a PATCH that flips `disabled`.
 

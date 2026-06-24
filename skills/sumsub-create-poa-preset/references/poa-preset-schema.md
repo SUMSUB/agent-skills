@@ -79,9 +79,9 @@ Typical pairings (observed in real-world configs):
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| `POST` | `/resources/api/poaStepSettings` | API (App Token) | Create a new preset. Body must NOT carry `id`. |
-| `PATCH` | `/resources/api/poaStepSettings` | API (App Token) | Update an existing preset. Body MUST carry `id`. |
-| `GET` | `/resources/api/poaStepSettings/{id}` | API (App Token) | Read one preset (verify what landed; resolve `name` from a known `id`). |
+| `POST` | `/resources/api/agent/poaStepSettings` | API (App Token) | Create a new preset. Body must NOT carry `id`. |
+| `PATCH` | `/resources/api/agent/poaStepSettings` | API (App Token) | Update an existing preset. Body MUST carry `id`. |
+| `GET` | `/resources/api/agent/poaStepSettings/{id}` | API (App Token) | Read one preset (verify what landed; resolve `name` from a known `id`). |
 
 There is no list or DELETE endpoint on the public API — to find a preset
 by name you need to remember its `id` from creation. Browsing all presets
