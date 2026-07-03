@@ -1,0 +1,32 @@
+{
+  "_comment": "Compact synthetic config graph (same shape resolve_graph.sh emits) used by scripts/test_trace.py to exercise every bucket offline. Workflow enforces only the AML gate.",
+  "level": { "name": "sample-level", "requiredIdDocs": { "docSets": [
+    { "idDocSetType": "IDENTITY", "types": ["PASSPORT", "ID_CARD"] }
+  ] } },
+  "questionnaires": {
+    "q1": {
+      "id": "q1",
+      "sections": [
+        { "items": [
+          { "type": "select", "options": [{ "score": 4 }, { "score": 2 }, { "score": 0 }] },
+          { "type": "select", "options": [{ "score": 1 }, { "score": 1 }] }
+        ] }
+      ]
+    }
+  },
+  "poaPresets": {},
+  "crossCheckPresets": {},
+  "workflow": {
+    "title": "Sample — AML gate only",
+    "nodes": [
+      { "id": "lvl", "type": "applicantLevel", "applicantLevel": { "levelName": "sample-level" } },
+      { "id": "gate", "type": "exclusiveChoice" }
+    ],
+    "edges": [
+      { "from": "lvl", "to": "gate", "condition": null },
+      { "from": "gate", "to": "edd", "condition": { "or": [{ "and": [{ "op": "contains", "args": [{ "exp": "applicant.riskLabels.aml" }, { "lit": "\"sanctions\"" }] }] }] } },
+      { "from": "gate", "to": "ok", "condition": { "or": [{ "and": [{ "op": "notEmpty", "args": [{ "exp": "applicant.country" }] }] }] } }
+    ]
+  },
+  "entitlements": ["QUESTIONNAIRE", "WATCHLISTS"]
+}

@@ -139,11 +139,11 @@ Accepts JSON or YAML on stdin. The builder fills in sensible defaults for each d
 | `type` | Shortcut keys | Builder expands to |
 |---|---|---|
 | `IDENTITY*` | `docTypes`; `videoRequired` (`disabled` / `docapture`); `captureMode` & `uploaderMode` (sent only when docapture); `nfcVerificationSettings: {mode}` | flat fields on the docSet — only what you set. See [Dashboard ↔ API mapping](#dashboard--api-mapping-for-identity-step) below. |
-| `SELFIE*` | `videoRequired` (default `passiveLiveness`; full set: `disabled` / `enabled` / `photoRequired` / `passiveLiveness` / `staticLiveness`), `docTypes` (default `["SELFIE"]`) | bare docSet with `videoRequired` |
+| `SELFIE*` | `videoRequired` (default `passiveLiveness`; full set: `disabled` / `enabled` / `photoRequired` / `passiveLiveness` / `staticLiveness`), `docTypes` (default `["SELFIE"]`); `selfieProcessingSettings: {skipLivenessCheck, skipFaceMatchCheck}` (used with payment-method verification — see below) | bare docSet with `videoRequired` [+ `selfieProcessingSettings`] |
 | `PROOF_OF_RESIDENCE*` | `docTypes` (default `["UTILITY_BILL"]`); **`poaPresetId`** (or `poaStepSettingsId`) to attach a POA preset by id | docSet + `poaStepSettingsId` |
 | `QUESTIONNAIRE*` | **`questionnaireDefId`** (or `questionnaireId` alias) *— required* | bare docSet |
 | `APPLICANT_DATA` | `fields` — array of strings or `{name, required, prefill, immutableIfPresent}` | `fields[]` with defaults |
-| `PAYMENT_METHODS` | `paymentMethods` (pass-through) | as-is |
+| `PAYMENT_METHODS` | `typeSettings` (object — keys: `bankCard`, `bankAccount`, `cryptoWallet`, `eWallet` — see [Payment method verification](#payment-method-verification-step-or-action) below); `skipOwnershipCheck` (bool, default `false`); `skipRiskScoreCheck` (bool); `walletScreeningProvider` (enum — see schema) | `paymentSourceSettings` with validated structure; always emits `types: ["PAYMENT_SOURCE"]` |
 | `EMAIL_VERIFICATION` / `PHONE_VERIFICATION` | — | bare docSet |
 | `COMPANY` | `steps` — array of `{name, minDocsCnt?, idDocTypes?, idDocSubTypes?, fields?, applicantLevelName?}` | full KYB step structure |
 | `E_SIGN` | `esignSettings` (pass-through) | as-is |
@@ -178,6 +178,72 @@ Verbatim labels from the Sumsub dashboard sidebar, paired with the API value to 
 
 These match what the dashboard's own Vue watcher writes when the user first toggles Live capture. **Caveat on PATCH:** `requiredIdDocs.docSets` is replaced wholesale (only top-level Level fields merge) — every docSet in the PATCH spec must carry the full intended state, since omitted sub-fields are wiped. GET the level first and copy values you want to preserve.
 
+### Payment method verification (step or action)
+
+Payment method verification — the `PAYMENT_METHODS` docSet, for verifying a bank card, bank account, crypto wallet, or e-wallet — runs in **two modes**:
+
+- **As a step** in a normal verification level: add a `PAYMENT_METHODS` docSet alongside `IDENTITY` / `SELFIE` / `PROOF_OF_RESIDENCE` / etc. The level stays a regular `standalone` level with **no** `actionType`. Use this when payment verification is one part of a broader onboarding flow.
+- **As an action** on an actions-type level: set `type: "actions"` and `actionType: "paymentMethod"`. Use this for a standalone, re-runnable payment-method check decoupled from onboarding.
+
+Pick the mode from how the user frames it — "add card/wallet verification to my KYC level" → step; "create a standalone payment-method check / action" → action.
+
+**Step mode** — inside a standard level (identity and payment coexist):
+
+```json
+{
+  "name": "KYC + payment method",
+  "type": "standalone",
+  "applicantType": "individual",
+  "docSets": [
+    {"type": "IDENTITY"},
+    {"type": "SELFIE", "videoRequired": "passiveLiveness"},
+    {"type": "PAYMENT_METHODS",
+     "typeSettings": {"bankCard": {"allowed": true, "countImages": "one"}}}
+  ]
+}
+```
+
+**Action mode** — inside an actions level:
+
+```json
+{
+  "name": "Payment method check",
+  "type": "actions",
+  "actionType": "paymentMethod",
+  "websdkNext": true,
+  "docSets": [
+    {"type": "PAYMENT_METHODS", "skipOwnershipCheck": false,
+     "typeSettings": {"bankCard": {"allowed": true, "countImages": "one"}}}
+  ]
+}
+```
+
+**Constraints the builder enforces:**
+
+- `actionType: "paymentMethod"` requires `type: "actions"`, and the level must include a `PAYMENT_METHODS` docSet.
+- Cannot set both `skipOwnershipCheck: true` and `skipRiskScoreCheck: true` simultaneously.
+- `walletScreeningProvider` goes at the `paymentSourceSettings` level, **not** inside `typeSettings.cryptoWallet` (the builder places it correctly).
+- **`bankAccount` needs a concrete verification method.** Unlike `bankCard`, enabling a bank account with `allowed: true` alone is **rejected by the API** — it must enable at least one of `allowBankStatementUpload` (statement upload, no extra entitlement) or `allowExternalSourcesCheck` (external data-source check, uses the `E_KYC` entitlement). Ask the user which method(s) they want; don't offer a bare "standard" bank-account option.
+
+**The `PAYMENT_METHODS` docSet (both modes):** the builder always emits `types: ["PAYMENT_SOURCE"]` plus a `paymentSourceSettings` object assembled from your compact spec — the API rejects the docSet without `paymentSourceSettings`, so the builder never omits it.
+
+**`typeSettings` per payment source type:**
+
+| Key | Fields |
+|---|---|
+| `bankCard` | `allowed` (bool); `countImages` (`"one"` / `"two"` / `"some"`); `extractIban` (bool); `extractNationalBankAccountNumbers` (bool); `requireBankAccountNumber` (bool) |
+| `bankAccount` | `allowed` (bool); `allowBankStatementUpload` (bool); `allowExternalSourcesCheck` (bool — requires `E_KYC_TARGET` entitlement). **When `allowed`, at least one of these two methods must be `true`** — see constraints above. |
+| `cryptoWallet` | `allowed` (bool); `satoshiTestAllowed` (bool); `unhostedWalletFormType` (`"DEFAULT"` / `"SIMPLE"` / `"KAZ"` / `"TUR"` / `"SGP"` / `"POL"` / `"ITA"`) |
+| `eWallet` | `allowed` (bool) |
+
+**`walletScreeningProvider` enum:** `crystal` / `merkle` / `trmLabs` / `chainalysis` / `elliptic` / `cyvers`
+
+**Entitlement:** requires `PAYMENT_SOURCE` or `KYT_UNHOSTED_WALLET_VERIFICATION` (see [Tenant entitlements](#tenant-entitlements)).
+
+**Dashboard link:** both modes live under `sdkIntegrations/levels/individualLevel/<id>` — the standard standalone-level URL pattern.
+
+See [`examples/payment-methods.json`](examples/payment-methods.json) for a complete action-mode spec.
+
 ### Chaining with other Sumsub-* skills
 
 This skill's `QUESTIONNAIRE` and `PROOF_OF_RESIDENCE` doc-sets accept ids produced by sibling skills, so a 3-step build-everything-from-scratch flow is natural:
@@ -206,6 +272,7 @@ On failure: HTTP status + the `description`/`errorName` from Sumsub's error enve
 - [`examples/full-kyc.json`](examples/full-kyc.json) — `APPLICANT_DATA + IDENTITY + SELFIE + PROOF_OF_RESIDENCE + QUESTIONNAIRE`.
 - [`examples/kyb-company.json`](examples/kyb-company.json) — KYB level with company + UBOs + representatives steps.
 - [`examples/with-presets.json`](examples/with-presets.json) — references both a questionnaire (`questionnaireDefId`) and a POA preset (`poaPresetId`) returned by sibling skills.
+- [`examples/payment-methods.json`](examples/payment-methods.json) — payment method action level with bank card, bank account, crypto wallet, and e-wallet.
 
 ## See also
 

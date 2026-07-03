@@ -1,0 +1,42 @@
+{
+  "_comment": "FIU-India requirements MAPPED to the hypothetical vasp-graph.json. config items now carry match (docSet/questionnaire) or a discriminating enforcementSignal; platform items unchanged. Feed with: trace.py --requirements fiu-india-vasp-mapped.json --graph vasp-graph.json",
+  "regulation": "FIU-India AML/CFT Guidelines for VDA Service Providers (2023) — mapped to vasp-onboarding-eu",
+  "requirements": [
+    { "id": "kyc-no-anonymous-wallets", "text": "5.7 No anonymous onboarding; customer must be identified",
+      "type": "question", "enforceable": "config", "match": { "docSet": "IDENTITY" } },
+    { "id": "kyc-customer-identification-ovd", "text": "5.7 Identify via an Officially Valid Document (passport / driving licence / …)",
+      "type": "question", "enforceable": "config", "match": { "docSet": "IDENTITY", "types": ["PASSPORT", "DRIVERS"] } },
+    { "id": "beneficial-owner", "text": "5.7b / 5.8.2 Identify and verify the beneficial owner",
+      "type": "question", "enforceable": "config", "match": { "docSet": "COMPANY" } },
+    { "id": "sanctions-screening-onboarding", "text": "5.10 Sanctions screening at onboarding",
+      "type": "screening", "enforceable": "config", "enforcementSignal": ["riskLabels.aml", "sanctions"] },
+    { "id": "pep-screening", "text": "5.9 PEPs identified and subject to EDD",
+      "type": "screening", "enforceable": "config", "enforcementSignal": ["riskLabels.aml", "pep"] },
+    { "id": "edd-high-risk-jurisdiction", "text": "5.9.2 EDD for high-risk jurisdictions",
+      "type": "routing-outcome", "enforceable": "config", "enforcementSignal": ["albania"] },
+    { "id": "edd-terminate-and-str", "text": "5.9 If EDD cannot complete, terminate the relationship",
+      "type": "routing-outcome", "enforceable": "config", "enforcementSignal": ["finalRejection"] },
+    { "id": "source-of-funds", "text": "5.9.1 Establish the customer's source of funds",
+      "type": "question", "enforceable": "config", "match": { "questionnaire": "sof", "section": 0, "item": 0 } },
+    { "id": "sanctions-screening-per-transfer", "text": "5.10 Sanctions screening on every VDA transfer",
+      "type": "screening", "enforceable": "config", "enforcementSignal": ["kyt", "sanctions"] },
+    { "id": "counterparty-due-diligence", "text": "5.11 Counterparty due diligence on VDA transfers",
+      "type": "screening", "enforceable": "config", "enforcementSignal": ["counterparty"] },
+
+    { "id": "cdd-written-process", "text": "5.8.4 Written CDD procedures", "type": "routing-outcome", "enforceable": "platform" },
+    { "id": "ongoing-monitoring", "text": "5.8 Ongoing risk-sensitive monitoring", "type": "routing-outcome", "enforceable": "platform" },
+    { "id": "record-retention-5y", "text": "5.8 Retain records ≥5 years", "type": "account-state", "enforceable": "platform" },
+    { "id": "str-reporting", "text": "5.4.2.1 File STRs within 7 working days", "type": "account-state", "enforceable": "platform" },
+    { "id": "appoint-officers", "text": "5.4 Appoint Designated Director + Principal Officer", "type": "account-state", "enforceable": "platform" },
+    { "id": "board-signed-program", "text": "5.2/5.3 Board-approved AML/CFT/CPF program", "type": "account-state", "enforceable": "platform" },
+    { "id": "training", "text": "5.5 Role-based training + hiring screening", "type": "account-state", "enforceable": "platform" },
+    { "id": "internal-audit", "text": "5.6 Independent internal audit", "type": "account-state", "enforceable": "platform" },
+    { "id": "re-registration", "text": "5.1 Register as a Reporting Entity with FIU-IND", "type": "account-state", "enforceable": "platform" },
+
+    { "id": "collect-customer-data", "text": "5.7 Collect customer identity data (DOB, address)", "type": "data-field", "enforceable": "config", "match": { "fields": ["dob", "country"] } },
+    { "id": "biometric-liveness", "text": "Liveness on selfie to prevent spoofing", "type": "liveness", "enforceable": "config", "match": {} },
+    { "id": "travel-rule-entitlement", "text": "5.10/5.11 Travel-Rule / KYT capability provisioned", "type": "entitlement", "enforceable": "config", "match": { "entitlement": "TRAVEL_RULE" } },
+    { "id": "kyb-entitlement", "text": "5.7b Beneficial-ownership / KYB capability provisioned", "type": "entitlement", "enforceable": "config", "match": { "entitlements": ["COMPANY", "KYB_FULL"] } },
+    { "id": "geo-restriction", "text": "Apply a geographic onboarding restriction", "type": "country-eligibility", "enforceable": "config", "match": { "mustHaveAllowlist": true } }
+  ]
+}

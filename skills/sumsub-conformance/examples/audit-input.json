@@ -1,0 +1,20 @@
+{
+  "_comment": "Example of a CLEAN resolved config graph (the shape resolve_graph.sh emits) for the hygiene linter. No findings expected when entitlements include POA + QUESTIONNAIRE.",
+  "level": {
+    "name": "basic-kyc-level",
+    "applicantType": "individual",
+    "websdkNext": true,
+    "requiredIdDocs": {
+      "docSets": [
+        { "idDocSetType": "IDENTITY", "types": ["PASSPORT", "ID_CARD"], "videoRequired": "docapture" },
+        { "idDocSetType": "SELFIE", "videoRequired": "passiveLiveness" },
+        { "idDocSetType": "PROOF_OF_RESIDENCE", "poaStepSettingsId": "poa-001" },
+        { "idDocSetType": "QUESTIONNAIRE", "questionnaireDefId": "q-001" }
+      ]
+    }
+  },
+  "workflow": null,
+  "questionnaires": { "q-001": { "id": "q-001", "name": "Applicant basics" } },
+  "poaPresets": { "poa-001": { "name": "Standard PoA", "allowedTypesSettings": { "utilityProvider": {}, "bank": {} } } },
+  "crossCheckPresets": {}
+}

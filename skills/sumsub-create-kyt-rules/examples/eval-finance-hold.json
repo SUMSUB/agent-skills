@@ -1,0 +1,9 @@
+{
+  "title": "Hold large outgoing transfers",
+  "desc": "Holds outgoing finance transactions over 50 000 in default currency and tags them as HighAmount.",
+  "types": ["finance"],
+  "conditionEl": "data.info.direction == 'out' AND data.info.amountInDefaultCurrency > 50000",
+  "score": 100,
+  "action": "onHold",
+  "tags": ["HighAmount"]
+}

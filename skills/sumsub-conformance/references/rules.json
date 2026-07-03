@@ -1,0 +1,161 @@
+{
+  "_comment": "Single source of truth for the conformance hygiene linter. lint_config.py loads this; lint-rules.md is generated from it (scripts/gen_lint_docs.py). To add a data-only rule, edit 'lookups'. To add a new rule id, add it to 'rules' AND its detection in lint_config.py, then run gen_lint_docs.py and add a test.",
+  "lookups": {
+    "amlProviders": [
+      "caSearch",
+      "wcCase",
+      "djAssociation",
+      "quantifindSearch",
+      "amlwSearch",
+      "caMeshSearch"
+    ],
+    "poaProviderCategories": [
+      "governmentOrganization",
+      "utilityProvider",
+      "bank",
+      "mobileOperator",
+      "other"
+    ],
+    "discouragedSelfieLiveness": [
+      "liveness",
+      "optional",
+      "disabled"
+    ],
+    "docsetEntitlements": {
+      "PROOF_OF_RESIDENCE": [
+        "POA"
+      ],
+      "PROOF_OF_RESIDENCE2": [
+        "POA"
+      ],
+      "QUESTIONNAIRE": [
+        "QUESTIONNAIRE"
+      ],
+      "QUESTIONNAIRE2": [
+        "QUESTIONNAIRE"
+      ],
+      "QUESTIONNAIRE3": [
+        "QUESTIONNAIRE"
+      ],
+      "QUESTIONNAIRE4": [
+        "QUESTIONNAIRE"
+      ],
+      "E_KYC": [
+        "E_KYC_TARGET"
+      ],
+      "E_SIGN": [
+        "E_SIGN_TARGET"
+      ],
+      "DEVICE_CHECK": [
+        "DEVICE_INTELLIGENCE"
+      ],
+      "PAYMENT_METHODS": [
+        "PAYMENT_SOURCE",
+        "PAYMENT_METHOD",
+        "PAYMENT_METHOD_CRYPTO",
+        "KYT_UNHOSTED_WALLET_VERIFICATION"
+      ],
+      "COMPANY": [
+        "COMPANY",
+        "KYB_FULL",
+        "KYB_AUTO_AML_AND_REGISTRY",
+        "KYB_AUTO_AML_ONLY"
+      ],
+      "COMPANY_DATA": [
+        "COMPANY",
+        "KYB_FULL",
+        "KYB_AUTO_AML_AND_REGISTRY",
+        "KYB_AUTO_AML_ONLY"
+      ],
+      "TR_RECIPIENT_INFORMATION": [
+        "TRAVEL_RULE"
+      ],
+      "INVESTABILITY": [
+        "PROOF_OF_FUNDS"
+      ],
+      "SOLANA_ATTESTATION": [
+        "PAYMENT_METHOD_CRYPTO"
+      ],
+      "LINEA_ATTESTATION": [
+        "PAYMENT_METHOD_CRYPTO"
+      ],
+      "CHAINLINK_ATTESTATION": [
+        "PAYMENT_METHOD_CRYPTO"
+      ]
+    }
+  },
+  "rules": {
+    "docset-entitlement-mismatch": {
+      "severity": "error",
+      "severityDoc": "error / unknown",
+      "detection": "A docSet whose idDocSetType needs an entitlement absent from the tenant's allowedChecks",
+      "fix": "Enable the entitlement (CSM) or drop the step. Unknown when entitlements could not be fetched."
+    },
+    "device-intelligence-no-entitlement": {
+      "severity": "error",
+      "severityDoc": "error / unknown",
+      "detection": "deviceIntelligenceSettings.enabled:true without DEVICE_INTELLIGENCE (a bare DEVICE_CHECK step is covered by docset-entitlement-mismatch)",
+      "fix": "Enable DEVICE_INTELLIGENCE, then GET the level back to confirm it stuck — otherwise the API silently stores enabled:false."
+    },
+    "aml-provider-invalid": {
+      "severity": "error",
+      "detection": "watchListCheckSettings.amlCaseType not in the valid provider set",
+      "fix": "Use a valid provider or omit amlCaseType to inherit the tenant default."
+    },
+    "aml-custom-watchlist-gated": {
+      "severity": "warn",
+      "detection": "useCustomWatchListCheckSettings:true or any amlCaseType set",
+      "fix": "Confirm the tenant is provisioned, or set useCustomWatchListCheckSettings:false and omit amlCaseType."
+    },
+    "poa-preset-missing": {
+      "severity": "error",
+      "detection": "PROOF_OF_RESIDENCE* step with no poaStepSettingsId",
+      "fix": "Create a PoA preset and wire its id into poaStepSettingsId — the server rejects the level otherwise."
+    },
+    "poa-preset-unresolved": {
+      "severity": "error",
+      "detection": "poaStepSettingsId points at an id that did not resolve",
+      "fix": "Point poaStepSettingsId at an existing PoA preset in this tenant."
+    },
+    "questionnaire-missing": {
+      "severity": "error",
+      "detection": "QUESTIONNAIRE* step with no questionnaireDefId",
+      "fix": "Create a questionnaire and wire its id into questionnaireDefId."
+    },
+    "questionnaire-unresolved": {
+      "severity": "error",
+      "detection": "questionnaireDefId GET 404s",
+      "fix": "Point questionnaireDefId at an existing questionnaire in this tenant."
+    },
+    "selfie-no-liveness": {
+      "severity": "warn",
+      "detection": "SELFIE* step with no videoRequired",
+      "fix": "Set videoRequired (default passiveLiveness; photoRequired to skip liveness deliberately)."
+    },
+    "selfie-deprecated-liveness": {
+      "severity": "warn",
+      "detection": "SELFIE videoRequired in the discouraged set",
+      "fix": "Use passiveLiveness (default), or photoRequired to intentionally skip liveness."
+    },
+    "duplicate-docset-type": {
+      "severity": "error",
+      "detection": "Any idDocSetType appears more than once",
+      "fix": "Keep one, or use the numbered variant (e.g. IDENTITY2) — a distinct type string."
+    },
+    "poa-allowed-types-bad-keys": {
+      "severity": "error",
+      "detection": "PoA allowedTypesSettings keys outside the provider-category set",
+      "fix": "Keys must be provider categories, not document sub-types."
+    },
+    "legacy-websdk": {
+      "severity": "warn",
+      "detection": "websdkNext is not true",
+      "fix": "Set websdkNext:true."
+    },
+    "workflow-high-risk-no-pep-aml": {
+      "severity": "info",
+      "detection": "Workflow routes on country/risk but has no PEP/AML/watchlist branch (substring heuristic)",
+      "fix": "Confirm high-risk applicants get enhanced screening (PEP/AML) somewhere in the flow."
+    }
+  }
+}

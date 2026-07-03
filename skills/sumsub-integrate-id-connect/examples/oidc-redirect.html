@@ -1,0 +1,124 @@
+<!doctype html>
+<!--
+  Method 4 — Standard OIDC redirect, no Sumsub library.
+
+  Use this when CSP forbids third-party scripts, you're in an SSR-only
+  environment, or you maintain a generic OIDC client across multiple
+  providers. For most integrations, Method 1 (`createButton`) is simpler.
+
+  Two phases in this one page:
+    1. Initial load with no ?code= → generate PKCE verifier+challenge, stash
+       verifier in sessionStorage, build authorize URL, redirect.
+    2. Callback load with ?code= → read verifier back, POST {code, verifier}
+       to your backend. If backend returns needsConsent, redirect to the
+       shareLink URL it provides.
+
+  Pairs with examples/express-callback.js — config (clientId, scopes,
+  levelName) is fetched from the backend's /config endpoint.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Verify with Sumsub ID</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 640px; margin: 4rem auto; padding: 0 1rem; color: #111; }
+      button { padding: .75rem 1.5rem; font-size: 1rem; cursor: pointer; border-radius: 6px; border: 1px solid #2563eb; background: #2563eb; color: white; }
+      button:hover { background: #1d4ed8; }
+      pre { background: #f3f4f6; padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: .85rem; white-space: pre-wrap; word-break: break-word; }
+      .ok  { color: #047857; }
+      .err { color: #b91c1c; }
+    </style>
+  </head>
+  <body>
+    <h1>Verify with Sumsub ID</h1>
+    <button id="start" type="button">Continue with Sumsub ID</button>
+    <pre id="log">Loading config…</pre>
+
+    <script type="module">
+      const log = (msg, cls = '') => {
+        const el = document.getElementById('log');
+        el.textContent = typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2);
+        el.className = cls;
+      };
+
+      const cfg          = await fetch('/config').then(r => r.json());
+      const REDIRECT_URI = window.location.origin + '/';
+
+      // PKCE helpers — Sumsub only accepts S256.
+      const b64url = (buf) =>
+        btoa(String.fromCharCode(...new Uint8Array(buf)))
+          .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+      function randomString(byteLength = 32) {
+        const b = new Uint8Array(byteLength);
+        crypto.getRandomValues(b);
+        return b64url(b);
+      }
+
+      const sha256 = (s) => crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+
+      async function startAuthorize() {
+        const verifier  = randomString(32);                  // 43 chars after b64url
+        const challenge = b64url(await sha256(verifier));
+        const state     = randomString(16);                  // CSRF nonce, echoed back
+
+        sessionStorage.setItem('sumsub.pkce.verifier', verifier);
+        sessionStorage.setItem('sumsub.pkce.state',    state);
+
+        const url = new URL(cfg.authUrl);
+        url.searchParams.set('client_id',             cfg.clientId);
+        url.searchParams.set('response_type',         'code');
+        url.searchParams.set('redirect_uri',          REDIRECT_URI);
+        url.searchParams.set('scope',                 cfg.scopes);
+        url.searchParams.set('state',                 state);
+        url.searchParams.set('code_challenge',        challenge);
+        url.searchParams.set('code_challenge_method', 'S256');
+
+        window.location.assign(url.toString());
+      }
+
+      async function handleCallback() {
+        const params          = new URLSearchParams(window.location.search);
+        const code            = params.get('code');
+        const stateFromServer = params.get('state');
+        const verifier        = sessionStorage.getItem('sumsub.pkce.verifier');
+        const stateExpected   = sessionStorage.getItem('sumsub.pkce.state');
+
+        // CSRF check — fail closed.
+        if (!stateExpected || stateFromServer !== stateExpected) {
+          log('state mismatch — aborting (possible CSRF).', 'err');
+          return;
+        }
+        sessionStorage.removeItem('sumsub.pkce.verifier');
+        sessionStorage.removeItem('sumsub.pkce.state');
+
+        log('Got code, exchanging on backend…');
+        const r = await fetch('/api/sumsub/id-connect/exchange', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ code, codeVerifier: verifier }),
+        });
+        const json = await r.json();
+
+        // Stage 3b — partner consent flow.
+        if (json?.needsConsent && json?.shareUrl) {
+          log('Sharing consent needed — redirecting…');
+          window.location.assign(json.shareUrl);
+          return;
+        }
+
+        log(json, r.ok ? 'ok' : 'err');
+        history.replaceState({}, '', window.location.pathname);
+      }
+
+      const hasCode = new URLSearchParams(window.location.search).has('code');
+      if (hasCode) {
+        await handleCallback();
+      } else {
+        log(`Ready. Will hit ${cfg.authUrl} with client_id=${cfg.clientId}, redirect_uri=${REDIRECT_URI}, level=${cfg.levelName}.`);
+        document.getElementById('start').addEventListener('click', startAuthorize);
+      }
+    </script>
+  </body>
+</html>

@@ -35,7 +35,8 @@ Server-populated, never send: `id`, `_id`, `clientId`, `key`, `createdAt`, `crea
 | `customFields` | `ApplicantIdDocSetCustomField[]` | `{name, displayName, required, immutableIfPresent}`. |
 | `questionnaireDefId` | string | **Required** for `QUESTIONNAIRE*` types — the questionnaire `id` (slug). The level-skill builder also accepts `questionnaireId` as an alias. Pass the `id` returned by `sumsub-create-questionnaire`. |
 | `poaStepSettingsId` | bsonObjectId | **Required** on `PROOF_OF_RESIDENCE*` types — the server rejects the level with an error if omitted ("PoA preset can't be null"). Attaches a POA preset (`PoaStepSettings`) to govern accepted POA document types, validity windows, POI-as-POA, and cross-validator rules. The level-skill builder accepts `poaPresetId` as a friendlier alias. Pass the `id` returned by `sumsub-create-poa-preset`. |
-| `paymentMethods` | array | For `PAYMENT_METHODS`. Each: `{type, subTypes?, definitionsSubTypes?}`. |
+| `paymentMethods` | array | **Legacy.** Do not set on new levels — pass `[]` or omit. The active configuration lives in `paymentSourceSettings` below. |
+| `paymentSourceSettings` | object | **Required** for `PAYMENT_METHODS` docSets. Contains `skipOwnershipCheck` (bool), `skipRiskScoreCheck` (bool — cannot both be true), `walletScreeningProvider` (enum), `typeSettings` (per-type config object — see *Payment source type settings* below). The builder always emits this; the API rejects the level without it. |
 | `steps` | `ApplicantIdDocSetStep[]` | For `COMPANY` — see *KYB steps*. |
 | `emailVerificationSettings` / `phoneVerificationSettings` | object | Provider/template selection for verification steps. |
 | `esignSettings` | object | E-sign document configuration. |
@@ -62,6 +63,46 @@ Use `IDENTITY2`/`3`/`4` when you need *additional* identity captures in the same
 ## Common `IdDocType` values
 
 `PASSPORT`, `ID_CARD`, `DRIVERS`, `RESIDENCE_PERMIT`, `VIDEO_SELFIE`, `SELFIE`, `UTILITY_BILL`, `BANK_STATEMENT`, `COMPANY_DOC`, `POWER_OF_ATTORNEY`, `TAX_RETURN`, `RENTAL_AGREEMENT`, etc. (Full enum is `IdDocType` in the OpenAPI.)
+
+## Payment source type settings (`paymentSourceSettings.typeSettings`)
+
+Each key in `typeSettings` enables a payment source category. Omit a key entirely to disable that type.
+
+**`bankCard`**
+
+| Field | Type | Notes |
+|---|---|---|
+| `allowed` | bool | Enable bank card verification. |
+| `countImages` | enum | `"one"` / `"two"` / `"some"` — number of card photos required. |
+| `extractIban` | bool | Extract IBAN from card image. |
+| `extractNationalBankAccountNumbers` | bool | Extract national bank account numbers. |
+| `requireBankAccountNumber` | bool | Require successful account number extraction. |
+
+**`bankAccount`**
+
+| Field | Type | Notes |
+|---|---|---|
+| `allowed` | bool | Enable bank account verification. |
+| `allowBankStatementUpload` | bool | Allow uploading a bank statement. |
+| `allowExternalSourcesCheck` | bool | Enable online banking check. Requires `E_KYC_TARGET` entitlement. |
+
+**`cryptoWallet`**
+
+| Field | Type | Notes |
+|---|---|---|
+| `allowed` | bool | Enable crypto wallet verification. |
+| `satoshiTestAllowed` | bool | Enable Satoshi test for ownership proof. |
+| `unhostedWalletFormType` | enum | Jurisdiction-specific form: `"DEFAULT"` / `"SIMPLE"` / `"KAZ"` / `"TUR"` / `"SGP"` / `"POL"` / `"ITA"`. |
+
+**`eWallet`**
+
+| Field | Type | Notes |
+|---|---|---|
+| `allowed` | bool | Enable e-wallet verification. |
+
+**`walletScreeningProvider`** (top-level on `paymentSourceSettings`, not inside `typeSettings.cryptoWallet`):
+
+`"crystal"` / `"merkle"` / `"trmLabs"` / `"chainalysis"` / `"elliptic"` / `"cyvers"`
 
 ## KYB steps (`COMPANY.steps[]`)
 

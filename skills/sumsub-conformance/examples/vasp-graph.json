@@ -1,0 +1,41 @@
+{
+  "_comment": "HYPOTHETICAL VASP/crypto-exchange deployed config (same shape resolve_graph.sh emits). Deliberately partially-conformant: individual-only (no COMPANY/BO docset), AML+PEP routed, but no country EDD / no KYT-per-transfer / no termination branch.",
+  "level": {
+    "name": "vasp-onboarding-eu",
+    "websdkNext": true,
+    "requiredIdDocs": {
+      "docSets": [
+        { "idDocSetType": "IDENTITY", "types": ["PASSPORT", "ID_CARD", "DRIVERS"], "videoRequired": "docapture" },
+        { "idDocSetType": "SELFIE", "videoRequired": "passiveLiveness" },
+        { "idDocSetType": "QUESTIONNAIRE", "questionnaireDefId": "sof" }
+      ]
+    }
+  },
+  "questionnaires": {
+    "sof": { "id": "sof", "sections": [ { "items": [
+      { "type": "select", "options": [ { "score": 0 }, { "score": 1 }, { "score": 2 } ] }
+    ] } ] }
+  },
+  "poaPresets": {},
+  "crossCheckPresets": {},
+  "workflow": {
+    "title": "VASP routing — AML gate only",
+    "nodes": [
+      { "id": "onboarding", "type": "applicantLevel", "applicantLevel": { "levelName": "vasp-onboarding-eu" } },
+      { "id": "aml-gate", "type": "exclusiveChoice" },
+      { "id": "edd", "type": "manualReview" },
+      { "id": "approve", "type": "actions" }
+    ],
+    "edges": [
+      { "from": "onboarding", "to": "aml-gate", "condition": null },
+      { "from": "aml-gate", "to": "edd", "condition": { "or": [
+        { "and": [ { "op": "contains", "args": [ { "exp": "applicant.riskLabels.aml" }, { "lit": "\"sanctions\"" } ] } ] },
+        { "and": [ { "op": "contains", "args": [ { "exp": "applicant.riskLabels.aml" }, { "lit": "\"pep\"" } ] } ] }
+      ] } },
+      { "from": "aml-gate", "to": "approve", "condition": { "or": [
+        { "and": [ { "op": "notEmpty", "args": [ { "exp": "applicant.country" } ] } ] }
+      ] } }
+    ]
+  },
+  "entitlements": ["WATCHLISTS", "QUESTIONNAIRE", "KNOWN_FACE_SEARCH"]
+}

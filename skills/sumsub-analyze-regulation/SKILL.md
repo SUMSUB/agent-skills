@@ -186,11 +186,11 @@ Configured via `sumsub-create-level` once activated.
 
 **Activation steps:** (1) contact CSM to request per-country activation, (2) run `sumsub-create-level`.
 
-### E. Transaction Monitoring — KYT Rules
+### E. Transaction Monitoring — `sumsub-create-kyt-rules`
 
-**⚠️ No public skill available yet. Configure manually in Sumsub Dashboard → Settings → Transaction Monitoring.**
+**⚠️ Requires `KYT` license** (and `TRAVEL_RULE` for crypto, `TM_SCHEDULED_EVENTS` for periodic re-KYC, `KYT_ANTI_FRAUD` for platform events).
 
-Describes what to configure, not how to do it via API.
+Describes what to configure at plan time in plain language. `sumsub-create-kyt-rules` translates each rule into a `conditionEl` SumScript expression and POSTs it to the API. New rules always start in test mode (`dryRun: true`) — activating them requires the dashboard.
 
 **Transaction types:**
 - `finance` — financial transactions (fiat and crypto)
@@ -255,10 +255,10 @@ Covers: finance transactions, Travel Rule (crypto counterparty data), platform e
 | Electronic / non-document verification | `E_KYC` docSet | `sumsub-create-level` *(CSM activation required)* |
 | KYB — company verification | `COMPANY` / `COMPANY_DATA` / `COMPANY_BENEFICIARIES` | `sumsub-create-level` |
 | Risk-based routing (standard vs EDD) | Workflow with `exclusiveChoice` | `sumsub-create-workflow` |
-| Transaction monitoring (thresholds, patterns) | KYT rules | ⚠️ Sumsub Dashboard *(skill in development)* |
-| Crypto Travel Rule | `travelRule` transaction type + KYT rules | ⚠️ Sumsub Dashboard *(skill in development)* |
-| Periodic re-KYC obligation | TM Scheduled rule `byLevelName` | ⚠️ Sumsub Dashboard *(skill in development)* |
-| Compliance case management | TM rule `caseAction` | ⚠️ Sumsub Dashboard *(skill in development)* |
+| Transaction monitoring (thresholds, patterns) | KYT rules | `sumsub-create-kyt-rules` *(requires `KYT` license)* |
+| Crypto Travel Rule | `travelRule` transaction type + KYT rules | `sumsub-create-kyt-rules` *(requires `TRAVEL_RULE` license)* |
+| Periodic re-KYC obligation | TM Scheduled rule `byLevelName` | `sumsub-create-kyt-rules` *(requires `TM_SCHEDULED_EVENTS` license)* |
+| Compliance case management | TM rule `caseAction` | `sumsub-create-kyt-rules` |
 | Transaction data submission | KYT submission | `sumsub-create-transaction` |
 | Device check / fraud prevention | `DEVICE_CHECK` docSet | `sumsub-create-level` *(requires DEVICE_INTELLIGENCE license)* |
 | WebSDK / front-end onboarding flow | WebSDK integration | `sumsub-integrate-websdk` |
@@ -346,24 +346,32 @@ Produce the plan as a structured markdown document with two clearly separated se
 - Required fields per transaction: [counterparty name, wallet address, etc.] — _(Art. N)_
 → Next: `sumsub-create-transaction`
 
----
-
-## ⚠️ Configure in Sumsub Dashboard (skills in development)
-
-### Transaction Monitoring Rules
-Dashboard path: Settings → Transaction Monitoring
+### 6. Transaction Monitoring Rules
+[Only include if regulation requires transaction monitoring. Requires `KYT` license.]
 
 #### Rule: [name]
-- Type: `finance` | `travelRule` | `userPlatformEvent` | `scheduledEvent`
-- Trigger: [plain language description, e.g. "incoming crypto transaction > $10,000"]
-- Action: score [N] | onHold | reject
-- Additional: [case creation / level change / manual review if required]
+- `types`: `finance` | `travelRule` | `kyc` | `userPlatformEvent` | `scheduledEvent`
+- Trigger: [plain language, e.g. "incoming transaction above $10,000"]
+- `action`: `score [N]` | `onHold` | `awaitUser` | `reject`
+- Case creation: yes | no — [group by applicant / by rule]
 - Regulation reference: Art. N
+→ Next: `sumsub-create-kyt-rules`
 
-### Periodic Re-KYC
+#### Periodic Re-KYC rule [if applicable — requires `TM_SCHEDULED_EVENTS` license]
 - Trigger: customers at level [X] after [N] days
 - Action: reassign to level [Y] for re-verification
 - Regulation reference: Art. N
+→ Next: `sumsub-create-kyt-rules`
+
+---
+
+## ⚠️ Configure in Sumsub Dashboard
+
+### Activate TM rules
+New rules are created in test mode (`dryRun: true`). To make them live: open each rule in the dashboard (KYT → Rules Manager) and set it to **Active**.
+
+### KYT Client Lists
+Adding values to client lists referenced in rule conditions (e.g., country blocklists, peer allowlists) is a dashboard-only operation: KYT → Client Lists.
 
 ---
 
@@ -392,8 +400,9 @@ Dashboard path: Settings → Transaction Monitoring
 3. `sumsub-create-level` (standard KYC level)
 4. `sumsub-create-level` (EDD level, if needed)
 5. `sumsub-create-workflow` (if risk-based routing needed)
-6. `sumsub-create-transaction` (instrument transaction submission)
-7. Dashboard — configure TM rules manually
+6. `sumsub-create-kyt-rules` (TM rules, if regulation requires transaction monitoring)
+7. `sumsub-create-transaction` (instrument transaction submission)
+8. Dashboard — activate TM rules (move from test mode to live)
 ```
 
 ---
@@ -408,7 +417,7 @@ Dashboard path: Settings → Transaction Monitoring
 6. **Be concrete:** the plan must use actual Sumsub parameter names and enum values, not prose descriptions. Write `docTypes: [PASSPORT, ID_CARD, DRIVERS]`, not "Passport and national ID". Write `videoRequired: passiveLiveness`, not "advanced liveness". Write `fields: [firstName, lastName, dob, tin]`, not "name and tax number". Include country codes in ISO-3166 alpha-3 (`BRA`, not "Brazil"). Name questionnaire item types (`bool`, `select`, `text`). Use the country-specific document mapping table in the Capability Map to translate local document names to IdDocType codes.
 7. **Mark the boundary clearly:** every item in the plan must be in either ✅ (skills available now) or ⚠️ (Dashboard / skill in development). Never leave the boundary ambiguous.
 8. **E-KYC is always opt-in:** always mark E-KYC as requiring CSM activation. List the activation steps. Do not present it as a default option.
-9. **TM rules in plain language only:** describe trigger conditions and actions in business language (e.g., "block transactions over $50,000"). Do not write SumScript expressions or technical rule syntax.
+9. **TM rules in plain language only:** describe trigger conditions and actions in business language (e.g., "block transactions over $50,000"). Do not write SumScript expressions or technical rule syntax — `sumsub-create-kyt-rules` handles that translation.
 10. **No TM rules without explicit requirement:** only include TM rules in the plan if the regulation explicitly requires transaction monitoring.
 11. **Licenses:** flag `DEVICE_INTELLIGENCE`, `E_KYC_TARGET`, `KYT`, `TRAVEL_RULE`, `TM_SCHEDULED_EVENTS` as requiring license verification.
 12. **Out of scope:** explicitly list requirements the regulation contains that Sumsub cannot fulfill (data retention, authority reporting, etc.).
@@ -423,6 +432,7 @@ Dashboard path: Settings → Transaction Monitoring
 | `sumsub-create-questionnaire` | Regulation requires SOF, PEP, wealth, employment, or risk profile collection |
 | `sumsub-create-poa-preset` | Regulation requires address verification |
 | `sumsub-create-workflow` | Regulation requires risk-based routing, EDD flow, or multi-stage onboarding |
+| `sumsub-create-kyt-rules` | Regulation requires transaction monitoring rules (thresholds, suspicious patterns, periodic re-KYC, Travel Rule) |
 | `sumsub-create-transaction` | Regulation requires transaction monitoring data submission |
 | `sumsub-integrate-websdk` | Regulation has UX or front-end onboarding requirements |
 | `sumsub-api-generic` | Check existing configuration before creating new entities |

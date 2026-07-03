@@ -50,6 +50,7 @@ SET_TYPES = {
 }
 LEVEL_TYPES = {"standalone", "actions", "module"}
 APPLICANT_TYPES = {"individual", "company"}
+ACTION_TYPES = {"paymentMethod"}
 # IDENTITY: only `disabled` and `docapture` are actionable. Other VideoRequired
 # values fall through to null in ApplicantHelper.getCaptureParams (verified).
 IDENTITY_VIDEO_REQUIRED = {"disabled", "docapture"}
@@ -61,6 +62,9 @@ SELFIE_VIDEO_REQUIRED = {"disabled", "enabled", "photoRequired", "passiveLivenes
 CAPTURE_MODES = {"manualAndAuto", "manualOnly", "seamless", "manualAfterTimeout"}
 UPLOADER_MODES = {"always", "never", "fallback"}
 NFC_MODES = {"disabled", "optional", "required"}
+WALLET_SCREENING_PROVIDERS = {"crystal", "merkle", "trmLabs", "chainalysis", "elliptic", "cyvers"}
+BANK_CARD_COUNT_IMAGES = {"one", "two", "some"}
+UNHOSTED_WALLET_FORM_TYPES = {"DEFAULT", "SIMPLE", "KAZ", "TUR", "SGP", "POL", "ITA"}
 
 DEFAULT_IDENTITY_TYPES = ["PASSPORT", "ID_CARD", "DRIVERS", "RESIDENCE_PERMIT"]
 DEFAULT_SELFIE_TYPES = ["SELFIE"]
@@ -126,11 +130,17 @@ def _build_selfie(spec):
     video_required = spec.get("videoRequired") or "passiveLiveness"
     if video_required not in SELFIE_VIDEO_REQUIRED:
         raise ValueError(f"SELFIE videoRequired must be one of {sorted(SELFIE_VIDEO_REQUIRED)}; got {video_required!r}")
-    return {
+    out = {
         "idDocSetType": spec["type"],
         "types": list(types),
         "videoRequired": video_required,
     }
+    if spec.get("selfieProcessingSettings") is not None:
+        sps = spec["selfieProcessingSettings"]
+        if not isinstance(sps, dict):
+            raise ValueError(f"SELFIE selfieProcessingSettings must be an object; got {sps!r}")
+        out["selfieProcessingSettings"] = sps
+    return out
 
 
 def _build_por(spec):
@@ -166,10 +176,87 @@ def _build_applicant_data(spec):
 
 
 def _build_payment(spec):
+    """PAYMENT_METHODS doc-set for actionType='paymentMethod' action levels.
+    Builds paymentSourceSettings from the compact typeSettings spec.
+    walletScreeningProvider belongs at paymentSourceSettings level — NOT inside
+    typeSettings.cryptoWallet. Cannot set both skip flags true simultaneously."""
+    type_settings_in = spec.get("typeSettings") or {}
+    type_settings_out = {}
+    for type_name, type_cfg in type_settings_in.items():
+        if not isinstance(type_cfg, dict):
+            raise ValueError(f"PAYMENT_METHODS typeSettings.{type_name} must be an object; got {type_cfg!r}")
+        if type_name == "bankCard":
+            out_cfg = {"allowed": type_cfg.get("allowed", True)}
+            count_images = type_cfg.get("countImages")
+            if count_images is not None:
+                if count_images not in BANK_CARD_COUNT_IMAGES:
+                    raise ValueError(f"bankCard.countImages must be one of {sorted(BANK_CARD_COUNT_IMAGES)}; got {count_images!r}")
+                out_cfg["countImages"] = count_images
+            for k in ("extractIban", "extractNationalBankAccountNumbers", "requireBankAccountNumber"):
+                if k in type_cfg:
+                    out_cfg[k] = type_cfg[k]
+            type_settings_out["bankCard"] = out_cfg
+        elif type_name == "bankAccount":
+            out_cfg = {"allowed": type_cfg.get("allowed", True)}
+            for k in ("allowBankStatementUpload", "allowExternalSourcesCheck"):
+                if k in type_cfg:
+                    out_cfg[k] = type_cfg[k]
+            # Unlike bankCard, an enabled bankAccount needs at least one concrete
+            # verification method — `allowed: true` alone is rejected by the API.
+            # The two methods: allowBankStatementUpload (document upload, no extra
+            # entitlement) and allowExternalSourcesCheck (uses E_KYC entitlement).
+            if out_cfg["allowed"] and not (
+                out_cfg.get("allowBankStatementUpload") or out_cfg.get("allowExternalSourcesCheck")
+            ):
+                raise ValueError(
+                    "PAYMENT_METHODS bankAccount: 'allowed: true' alone is rejected — enable at "
+                    "least one verification method: allowBankStatementUpload (document upload, no "
+                    "extra entitlement) and/or allowExternalSourcesCheck (requires E_KYC entitlement)"
+                )
+            type_settings_out["bankAccount"] = out_cfg
+        elif type_name == "cryptoWallet":
+            out_cfg = {"allowed": type_cfg.get("allowed", True)}
+            form_type = type_cfg.get("unhostedWalletFormType")
+            if form_type is not None:
+                if form_type not in UNHOSTED_WALLET_FORM_TYPES:
+                    raise ValueError(
+                        f"cryptoWallet.unhostedWalletFormType must be one of {sorted(UNHOSTED_WALLET_FORM_TYPES)}; got {form_type!r}"
+                    )
+                out_cfg["unhostedWalletFormType"] = form_type
+            if "satoshiTestAllowed" in type_cfg:
+                out_cfg["satoshiTestAllowed"] = type_cfg["satoshiTestAllowed"]
+            type_settings_out["cryptoWallet"] = out_cfg
+        elif type_name == "eWallet":
+            type_settings_out["eWallet"] = {"allowed": type_cfg.get("allowed", True)}
+        else:
+            type_settings_out[type_name] = type_cfg
+
+    skip_ownership = spec.get("skipOwnershipCheck", False)
+    skip_risk = spec.get("skipRiskScoreCheck", False)
+    if skip_ownership and skip_risk:
+        raise ValueError(
+            "PAYMENT_METHODS: cannot set both skipOwnershipCheck and skipRiskScoreCheck to true simultaneously"
+        )
+
+    payment_source_settings = {"skipOwnershipCheck": skip_ownership}
+    if skip_risk:
+        payment_source_settings["skipRiskScoreCheck"] = True
+
+    wallet_provider = spec.get("walletScreeningProvider")
+    if wallet_provider is not None:
+        if wallet_provider not in WALLET_SCREENING_PROVIDERS:
+            raise ValueError(
+                f"walletScreeningProvider must be one of {sorted(WALLET_SCREENING_PROVIDERS)}; got {wallet_provider!r}"
+            )
+        payment_source_settings["walletScreeningProvider"] = wallet_provider
+
+    if type_settings_out:
+        payment_source_settings["typeSettings"] = type_settings_out
+
     return {
         "idDocSetType": "PAYMENT_METHODS",
-        "types": list(spec.get("docTypes") or ["PAYMENT_METHOD"]),
-        "paymentMethods": list(spec.get("paymentMethods") or []),
+        "types": ["PAYMENT_SOURCE"],
+        "paymentSourceSettings": payment_source_settings,
     }
 
 
@@ -241,6 +328,8 @@ def build_docset(spec):
         "questionnaireDefId", "questionnaireId",
         "poaStepSettingsId", "poaPresetId",
         "fields", "paymentMethods", "steps",
+        "selfieProcessingSettings",
+        "typeSettings", "skipOwnershipCheck", "skipRiskScoreCheck", "walletScreeningProvider",
     }
     for k, v in spec.items():
         if k in handled or v is None:
@@ -259,9 +348,27 @@ def build_level(spec):
     if level_type not in LEVEL_TYPES:
         raise ValueError(f"level type must be one of {sorted(LEVEL_TYPES)}; got {level_type!r}")
 
+    action_type = spec.get("actionType")
+    if action_type is not None and action_type not in ACTION_TYPES:
+        raise ValueError(f"actionType must be one of {sorted(ACTION_TYPES)}; got {action_type!r}")
+
     doc_sets_in = spec.get("docSets") or []
     if not doc_sets_in:
         raise ValueError("level must have at least one docSet")
+
+    # PAYMENT_METHODS runs in two modes: as a step in a normal level (no
+    # actionType — just another docSet, no special handling), or as an action on
+    # an actions-type level (actionType='paymentMethod'). Only the action form
+    # carries structural constraints, and only the definitional ones: an action
+    # runs on an 'actions' level, and a paymentMethod action needs the payment
+    # docSet to act on.
+    if action_type == "paymentMethod":
+        if level_type != "actions":
+            raise ValueError("actionType 'paymentMethod' requires level type 'actions'")
+        input_types = {d.get("type") for d in doc_sets_in}
+        if "PAYMENT_METHODS" not in input_types:
+            raise ValueError("actionType 'paymentMethod' level must include a PAYMENT_METHODS docSet")
+
     doc_sets = [build_docset(d) for d in doc_sets_in]
 
     # Reject duplicate idDocSetType in the same level (Sumsub will too)
@@ -278,6 +385,8 @@ def build_level(spec):
         "applicantType": applicant_type,
         "requiredIdDocs": {"docSets": doc_sets},
     }
+    if action_type is not None:
+        payload["actionType"] = action_type
     # Preserve id when provided — required for PATCH (update by id).
     # POST ignores id and assigns a fresh one, so passing it on create is harmless.
     if spec.get("id"):

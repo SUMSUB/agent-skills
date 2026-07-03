@@ -1,0 +1,27 @@
+{
+  "name": "Payment Method Verification (example)",
+  "applicantType": "individual",
+  "type": "actions",
+  "actionType": "paymentMethod",
+  "websdkNext": true,
+  "docSets": [
+    {
+      "type": "SELFIE",
+      "videoRequired": "photoRequired",
+      "selfieProcessingSettings": {
+        "skipLivenessCheck": true,
+        "skipFaceMatchCheck": true
+      }
+    },
+    {
+      "type": "PAYMENT_METHODS",
+      "skipOwnershipCheck": false,
+      "typeSettings": {
+        "bankCard": {"allowed": true, "countImages": "one"},
+        "bankAccount": {"allowed": true, "allowBankStatementUpload": true},
+        "cryptoWallet": {"allowed": true, "satoshiTestAllowed": true},
+        "eWallet": {"allowed": true}
+      }
+    }
+  ]
+}

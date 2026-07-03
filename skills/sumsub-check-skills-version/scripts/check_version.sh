@@ -36,7 +36,7 @@ REMOTE_RAW="$(
     --max-time 5 \
     -H "Accept: application/json, text/plain;q=0.9, */*;q=0.1" \
     -H "X-Agent-Source: sumsub-skills" \
-    -H "X-Agent-Source-Ver: 1.1.0" \
+    -H "X-Agent-Source-Ver: 1.2.0" \
     "${VERSION_URL}" 2>/dev/null || true
 )"
 
@@ -85,11 +85,11 @@ fi
 headsup=""
 case "${status}" in
   PATCH_BEHIND)
-    headsup="> ⚠️ **Sumsub skills update available** — you're on **${LOCAL}**, latest is **${REMOTE}** (patch). Run \`npx skills add SumSubstance/agent-skills --all\` to update." ;;
+    headsup="> ⚠️ **Sumsub skills update available** — you're on **${LOCAL}**, latest is **${REMOTE}** (patch). Run \`npx skills add SumSubstance/agent-skills --all\` to update (drop \`--all\` if your CLI reports an unknown flag)." ;;
   MINOR_BEHIND)
-    headsup="> ⚠️ **Sumsub skills out of date** — you're on **${LOCAL}**, latest is **${REMOTE}**. Run \`npx skills add SumSubstance/agent-skills --all\` to update." ;;
+    headsup="> ⚠️ **Sumsub skills out of date** — you're on **${LOCAL}**, latest is **${REMOTE}**. Run \`npx skills add SumSubstance/agent-skills --all\` to update (drop \`--all\` if your CLI reports an unknown flag)." ;;
   MAJOR_BEHIND)
-    headsup="> 🚨 **Sumsub skills significantly behind** (**${LOCAL} → ${REMOTE}**) — behavior may have changed. Run \`npx skills add SumSubstance/agent-skills --all\` before relying on results." ;;
+    headsup="> 🚨 **Sumsub skills significantly behind** (**${LOCAL} → ${REMOTE}**) — behavior may have changed. Run \`npx skills add SumSubstance/agent-skills --all\` before relying on results (drop \`--all\` if your CLI reports an unknown flag)." ;;
   AHEAD)
     headsup="> ℹ️ Sumsub skills **${LOCAL}** are ahead of the published **${REMOTE}** — likely a local dev build. Proceeding." ;;
 esac

@@ -1,0 +1,68 @@
+<!doctype html>
+<!--
+  Standalone Device Intelligence on a plain login form.
+  Captures the device when the user submits, then confirms the event to your
+  backend. DI is best-effort: a Fisherman failure must never block login.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Login with Device Intelligence</title>
+  </head>
+  <body>
+    <form id="login-form">
+      <input name="email" type="email" required />
+      <input name="password" type="password" required />
+      <button type="submit">Log in</button>
+    </form>
+
+    <script type="module">
+      import { init, destroy } from 'https://esm.sh/@sumsub/fisherman'
+
+      // 1. behavior token from your backend (signs sessionId; see behavior-token.sh)
+      async function getToken() {
+        const r = await fetch('/api/di/token', { method: 'POST' })
+        if (!r.ok) throw new Error('token mint failed')
+        // backend forwards Sumsub's response; the JWT is the `token` field, not `accessToken`
+        return (await r.json()).token
+      }
+
+      let fisherman
+      try {
+        fisherman = await init({
+          token: await getToken(),
+          baseUrl: 'https://api.sumsub.com',
+          accessTokenUpdateHandler: getToken, // refresh near expiry
+          onError: () => destroy(),
+        })
+      } catch (e) {
+        console.error('fisherman init failed (continuing without DI)', e)
+      }
+
+      document.getElementById('login-form').addEventListener('submit', async (ev) => {
+        ev.preventDefault()
+        try {
+          if (fisherman?.isDeviceIntelligenceEnabled) {
+            await fisherman.fingerprint({})
+            // Migration path only: generate a deviceBindingId, pass it to
+            // fingerprint({ deviceBindingId }), and forward it to the backend
+            // so the confirm call can echo it. Default flow: omit entirely —
+            // the behavior token's sessionId handles correlation.
+          }
+        } catch (e) {
+          console.error('fingerprint failed (continuing)', e) // fail open
+        }
+
+        // 2. perform the real login
+        await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ /* email, password */ }),
+        })
+
+        if (fisherman) destroy() // init may have failed → fisherman undefined; don't blow up the redirect
+        // redirect on success...
+      })
+    </script>
+  </body>
+</html>

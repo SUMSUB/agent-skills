@@ -1,0 +1,53 @@
+{
+  "_comment": "Requirements GROUNDED in 'Phase 4 Regulatory Questionnaire' (CFD/MiFID), each with a `source` citation into the document. Only clauses actually present in the doc — no injected geo/liveness/identity requirements (those aren't in this questionnaire; see sample-*.json / fiu-india for those types). expectScores in deployed option order.",
+  "regulation": "Phase 4 Regulatory Questionnaire (CFD / MiFID II)",
+  "requirements": [
+    { "id": "ep-purpose-scored", "source": "§1 Economic Profile — intended purpose",
+      "text": "Intended purpose scored Speculation=4 / Hedging=3 / Short-term=2 / Investment=1 / Long-term=0",
+      "type": "scoring", "enforceable": "config",
+      "match": { "questionnaire": "economic-profile", "section": 0, "item": 0 }, "expectScores": [4, 3, 2, 1, 0] },
+
+    { "id": "ep-pep-screening", "source": "§1 Economic Profile — PEP question",
+      "text": "Politically Exposed Person identified and screened",
+      "type": "screening", "enforceable": "config", "enforcementSignal": ["riskLabels.aml", "pep"] },
+
+    { "id": "ep-risk-bands", "source": "§1 Economic Profile — Scoring Result (Low <16 / Medium 16-32 / High >32)",
+      "text": "Economic-profile total score routes to Low / Medium / High risk handling",
+      "type": "routing-outcome", "enforceable": "config", "enforcementSignal": ["score"] },
+
+    { "id": "ep-high-risk-country-override", "source": "§1 Economic Profile — Scoring Result (***High-Risk-Country override)",
+      "text": "Client from a High-Risk-Country list → auto High Risk regardless of points",
+      "type": "routing-outcome", "enforceable": "config", "enforcementSignal": ["albania"] },
+
+    { "id": "pg-disposable-income-scored", "source": "§2 Product Governance — disposable income",
+      "text": "Average yearly net disposable income for high-risk investment (scored)",
+      "type": "scoring", "enforceable": "config",
+      "match": { "questionnaire": "product-governance", "section": 0, "item": 2 }, "expectScores": [0, 0, 0, 0] },
+
+    { "id": "pg-restrict", "source": "§2 Product Governance — Scoring Result (Below 7 → restrict)",
+      "text": "Product-Governance score Below 7 → restrict investment, proceed to next step",
+      "type": "routing-outcome", "enforceable": "config", "enforcementSignal": ["score"] },
+
+    { "id": "pg-restrict-disclosure", "source": "§2 Product Governance — Scoring Result pop-up (25% / 10%)",
+      "text": "Pop-up reserving the right to restrict annual investment to 25% of excess income / 10% of savings",
+      "type": "disclosure", "enforceable": "sdk" },
+
+    { "id": "ap-education-scored", "source": "§3 Appropriateness — Knowledge & Experience (education)",
+      "text": "Level of education scored Secondary=1 / Bachelor=2 / Master=3 / Professional=3 / None=1",
+      "type": "scoring", "enforceable": "config",
+      "match": { "questionnaire": "appropriateness-test", "section": 0, "item": 0 }, "expectScores": [1, 2, 3, 3, 1] },
+
+    { "id": "ap-qualification-scored", "source": "§3 Appropriateness — Knowledge & Experience (qualification)",
+      "text": "Professional/academic qualification Yes=10 / No=0",
+      "type": "scoring", "enforceable": "config",
+      "match": { "questionnaire": "appropriateness-test", "section": 0, "item": 2 }, "expectScores": [10, 0] },
+
+    { "id": "ap-bands", "source": "§3 Appropriateness — Scoring Result (<26 reject / 26-46 demo / 47-70 read-only / 71+ live)",
+      "text": "Appropriateness score routes to reject / demo / read-only / live bands",
+      "type": "routing-outcome", "enforceable": "config", "enforcementSignal": ["appropriateness", "score"] },
+
+    { "id": "ap-account-states", "source": "§3 Appropriateness — Scoring Result (demo / read-only account states)",
+      "text": "Demo account creation / Live read-only mode / Live blocking by appropriateness band",
+      "type": "account-state", "enforceable": "platform" }
+  ]
+}

@@ -1,0 +1,76 @@
+<!doctype html>
+<!--
+  Minimal "Verify with Sumsub ID" button using @sumsub/id-connect via UMD.
+
+  PKCE pair is generated here (not by the library) so the verifier sits
+  under a key this file owns — onSuccess can read it back and forward to
+  the backend exchange endpoint without depending on the library's internal
+  sessionStorage layout.
+
+  ⚠️ onSuccess + backend 200 only confirms the consent step worked. The
+  verification verdict is in json.reviewStatus (immediate) or arrives via
+  the applicantReviewed webhook. Don't grant feature access on those alone.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Verify with Sumsub ID — demo</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 480px; margin: 4rem auto; padding: 0 1rem; }
+      #status { margin-top: 1rem; padding: .75rem 1rem; border-radius: 6px; background: #f3f4f6; font-size: .9rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Verify with Sumsub ID</h1>
+    <p>Click the button below to share your verified identity claims.</p>
+    <div id="button-container"></div>
+    <div id="status">Idle.</div>
+
+    <script src="https://unpkg.com/@sumsub/id-connect/dist/index.umd.js"></script>
+    <script type="module">
+      const status = document.getElementById('status');
+      const setStatus = (msg) => { status.textContent = msg; };
+
+      // PKCE helpers — Sumsub only accepts S256.
+      const b64url = (buf) =>
+        btoa(String.fromCharCode(...new Uint8Array(buf)))
+          .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const randomString = (n = 32) => b64url(crypto.getRandomValues(new Uint8Array(n)));
+      const sha256 = (s) => crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+
+      // Generate verifier + challenge BEFORE mounting the button. The library
+      // will use our `codeChallenge` and skip its own PKCE generation, so the
+      // verifier stays under a key we control.
+      const verifier  = randomString(32);                  // 43 chars after b64url
+      const challenge = b64url(await sha256(verifier));
+      sessionStorage.setItem('myapp.pkce.verifier', verifier);
+
+      SumsubIdConnect.createButton({
+        clientId:      '<your-client-id>',                  // from Dashboard → Dev Space → OIDC Settings
+        permissions:   ['openid', 'share', 'name'],         // see references/scopes-and-claims.md
+        container:     document.getElementById('button-container'),
+        text:          'Verify with Sumsub ID',
+        codeChallenge: challenge,                            // pass OUR pair — library skips its own PKCE gen
+        // loginHint:  'user@example.com',                   // optional: prefills the email field
+        onSuccess: async ({ code, state }) => {
+          setStatus('Got authorization code, exchanging on backend…');
+          const v = sessionStorage.getItem('myapp.pkce.verifier');
+          const r = await fetch('/api/sumsub/id-connect/exchange', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ code, codeVerifier: v, redirectUri: location.href }),
+          });
+          if (!r.ok) { setStatus(`Backend exchange failed: ${r.status}`); return; }
+          const json = await r.json();
+          // ⚠️ reviewStatus is the meaningful field — onSuccess alone is not.
+          setStatus(`Applicant ${json.applicantId} — reviewStatus: ${json.reviewStatus}`);
+        },
+        onError: (err) => {
+          console.error('sumsub-id-connect error', err);
+          setStatus(`Error: ${err.message}`);
+        },
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,37 @@
+<!-- Add inside the target's Info.plist <dict>. -->
+<!-- If the target has NO Info.plist file (GENERATE_INFOPLIST_FILE = YES), add -->
+<!-- these as build settings instead, e.g. INFOPLIST_KEY_NSCameraUsageDescription. -->
+
+<key>NSCameraUsageDescription</key>
+<string>We need the camera to capture your documents and selfie.</string>
+
+<key>NSMicrophoneUsageDescription</key>
+<string>We need the microphone for video identification.</string>
+
+<key>NSPhotoLibraryUsageDescription</key>
+<string>We need photo library access to upload an existing document photo.</string>
+
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>We use your location to confirm where you are verifying from.</string>
+
+<!-- ─── NFC modules (MRTDReader and/or EID) — add the two keys below ONLY if such a -->
+<!-- module was confirmed in intake. Also enable the "Near Field Communication Tag -->
+<!-- Reading" capability (writes the NFC entitlement to .entitlements). -->
+<key>NFCReaderUsageDescription</key>
+<string>Let us scan the document for more precise recognition</string>
+
+<!-- Include the AIDs for each CONFIRMED module; if both, the shared A0000002471001 -->
+<!-- appears only once (union of the two lists): -->
+<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+<array>
+    <string>A0000002471001</string>     <!-- MRTDReader + EID (shared) -->
+    <string>A0000002472001</string>     <!-- MRTDReader only -->
+    <string>00000000000000</string>     <!-- MRTDReader only -->
+    <string>E80704007F00070302</string> <!-- EID only -->
+</array>
+
+<!-- Add the `audio` string to the `UIBackgroundModes` array only if VideoIdent module is CONFIRMED in intake:-->
+<key>UIBackgroundModes</key>
+<array>
+	<string>audio</string>
+</array>

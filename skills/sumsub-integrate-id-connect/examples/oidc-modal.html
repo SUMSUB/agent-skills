@@ -1,0 +1,58 @@
+<!doctype html>
+<!--
+  Modal variant: launch the Sumsub ID flow in an overlay rather than mounting
+  a prebuilt button. Use this when you want full control over the trigger
+  element (your own styled button, a menu item, etc.).
+
+  PKCE pair is generated per click so each attempt has a fresh verifier;
+  same key-ownership reasoning as oidc-button.html.
+
+  ⚠️ Backend 200 from /api/sumsub/id-connect/exchange ≠ user is verified.
+  See the warning in Stage 1 of SKILL.md.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Verify with Sumsub ID — modal demo</title>
+  </head>
+  <body>
+    <button id="trigger" type="button">Continue with Sumsub ID</button>
+
+    <script src="https://unpkg.com/@sumsub/id-connect/dist/index.umd.js"></script>
+    <script type="module">
+      // PKCE helpers — Sumsub only accepts S256.
+      const b64url = (buf) =>
+        btoa(String.fromCharCode(...new Uint8Array(buf)))
+          .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const randomString = (n = 32) => b64url(crypto.getRandomValues(new Uint8Array(n)));
+      const sha256 = (s) => crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+
+      document.getElementById('trigger').addEventListener('click', async () => {
+        // Fresh verifier per click — if a previous attempt was abandoned, the
+        // stale verifier in sessionStorage doesn't bind the new authorize call.
+        const verifier  = randomString(32);
+        const challenge = b64url(await sha256(verifier));
+        sessionStorage.setItem('myapp.pkce.verifier', verifier);
+
+        SumsubIdConnect.openModal({
+          clientId:      '<your-client-id>',
+          permissions:   ['openid', 'share', 'name', 'email', 'offline_access'],
+          codeChallenge: challenge,                          // pass OUR pair
+          // loginHint:  'user@example.com',
+          onLoading: (isLoading) => { /* toggle a spinner on your trigger */ },
+          onSuccess: async ({ code, state }) => {
+            const v = sessionStorage.getItem('myapp.pkce.verifier');
+            await fetch('/api/sumsub/id-connect/exchange', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body:    JSON.stringify({ code, codeVerifier: v, redirectUri: location.href }),
+            });
+            // ⚠️ Use the backend's reviewStatus / applicantReviewed webhook
+            // to gate access — not the mere fact that this fetch returned 200.
+          },
+          onError: (err) => console.error(err),
+        });
+      });
+    </script>
+  </body>
+</html>

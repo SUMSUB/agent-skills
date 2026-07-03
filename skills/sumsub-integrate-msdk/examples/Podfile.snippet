@@ -1,0 +1,24 @@
+# Podfile shape for IdensicMobileSDK. You're merging these pieces into the project's
+# EXISTING Podfile (this skill doesn't create one — no Podfile → use SPM).
+
+# Sources go at the very top, OUTSIDE any target. IdensicMobileSDK is published in
+# Sumsub's spec repo, so both are required (once any custom source is added, the default
+# cdn source must be declared explicitly too):
+source 'https://cdn.cocoapods.org/'
+source 'https://github.com/SumSubstance/Specs.git'
+
+platform :ios, '13.0'   # SDK minimum; must match (or be below) the project's deployment target, and be ≥ 13.0
+
+target 'YourApp' do   # ← the project's EXISTING app target — use its real name, don't add a new one
+  use_frameworks!   # IdensicMobileSDK is a dynamic Swift framework; add if not already declared (here or at the Podfile root)
+  # ...app's existing pods stay as they are
+
+  # Base required module
+  pod 'IdensicMobileSDK'
+
+  # Optional modules — use only the ones confirmed in intake:
+  # pod 'IdensicMobileSDK/MRTDReader'  # NFC passport / eMRTD
+  # pod 'IdensicMobileSDK/VideoIdent'  # Video Identification
+  # pod 'IdensicMobileSDK/EID'         # German eID
+  # pod 'IdensicMobileSDK/Fisherman'   # Device Intelligence
+end

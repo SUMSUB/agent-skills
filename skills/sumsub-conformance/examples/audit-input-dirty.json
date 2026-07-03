@@ -1,0 +1,26 @@
+{
+  "_comment": "A deliberately broken config graph exercising most linter rules. Used by scripts/test_lint.py.",
+  "level": {
+    "name": "broken-level",
+    "applicantType": "individual",
+    "websdkNext": false,
+    "crossCheckPresetId": "cc-999",
+    "deviceIntelligenceSettings": { "enabled": true },
+    "watchListCheckSettings": { "useCustomWatchListCheckSettings": true, "amlCaseType": "notAProvider" },
+    "requiredIdDocs": {
+      "docSets": [
+        { "idDocSetType": "IDENTITY", "types": ["PASSPORT"], "videoRequired": "docapture", "captureParams": {"x": 1} },
+        { "idDocSetType": "SELFIE" },
+        { "idDocSetType": "PROOF_OF_RESIDENCE" },
+        { "idDocSetType": "QUESTIONNAIRE", "questionnaireDefId": "q-missing" },
+        { "idDocSetType": "DEVICE_CHECK" },
+        { "idDocSetType": "EMAIL_VERIFICATION" },
+        { "idDocSetType": "EMAIL_VERIFICATION" }
+      ]
+    }
+  },
+  "workflow": null,
+  "questionnaires": { "q-missing": { "_error": "404" } },
+  "poaPresets": { "poa-bad": { "name": "Bad PoA", "allowedTypesSettings": { "UTILITY_BILL": {}, "bank": {} } } },
+  "crossCheckPresets": { "cc-999": { "_error": "404" } }
+}

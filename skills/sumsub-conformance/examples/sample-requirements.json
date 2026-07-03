@@ -1,0 +1,30 @@
+{
+  "_comment": "Synthetic requirements that drive every bucket against sample-graph.json (used by test_trace.py).",
+  "regulation": "Sample regulation",
+  "requirements": [
+    { "id": "scored-ok", "text": "Q scored 4/2/0", "type": "scoring", "enforceable": "config",
+      "match": { "questionnaire": "q1", "section": 0, "item": 0 }, "expectScores": [4, 2, 0] },
+    { "id": "scored-mismatch", "text": "Q expected 10/0 but deployed 1/1", "type": "scoring", "enforceable": "config",
+      "match": { "questionnaire": "q1", "section": 0, "item": 1 }, "expectScores": [10, 0] },
+    { "id": "absent-question", "text": "Required question never deployed", "type": "scoring", "enforceable": "config",
+      "match": null },
+    { "id": "aml-enforced", "text": "AML screening routed", "type": "screening", "enforceable": "config",
+      "enforcementSignal": ["riskLabels.aml", "sanctions"] },
+    { "id": "score-band-not-enforced", "text": "Score band routing", "type": "routing-outcome", "enforceable": "config",
+      "enforcementSignal": ["score"] },
+    { "id": "popup-disclosure", "text": "Mandatory disclosure pop-up", "type": "disclosure", "enforceable": "sdk" },
+    { "id": "identity-docset-ok", "text": "Identity doc collected (passport)", "type": "question", "enforceable": "config",
+      "match": { "docSet": "IDENTITY", "types": ["PASSPORT"] } },
+    { "id": "company-docset-missing", "text": "Beneficial owner / company docs", "type": "question", "enforceable": "config",
+      "match": { "docSet": "COMPANY" } },
+    { "id": "ent-present", "text": "WATCHLISTS entitlement", "type": "entitlement", "enforceable": "config",
+      "match": { "entitlement": "WATCHLISTS" } },
+    { "id": "ent-missing", "text": "TRAVEL_RULE entitlement", "type": "entitlement", "enforceable": "config",
+      "match": { "entitlement": "TRAVEL_RULE" } },
+    { "id": "field-missing", "text": "Collect DOB", "type": "data-field", "enforceable": "config",
+      "match": { "field": "dob" } },
+    { "id": "liveness-missing", "text": "Selfie liveness", "type": "liveness", "enforceable": "config", "match": {} },
+    { "id": "geo-missing", "text": "Geographic restriction", "type": "country-eligibility", "enforceable": "config",
+      "match": { "mustHaveAllowlist": true } }
+  ]
+}
