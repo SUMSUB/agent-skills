@@ -1,6 +1,7 @@
 ---
 name: sumsub-create-workflow
-description: Create a Sumsub applicant workflow — verification routing (levels, branches, country/age rules, final-rejection or manual-review steps) or an action workflow (post-verification tagging, notes, source-key changes). TRIGGER on requests to create/build/add a workflow or a flowchart-style routing description. Builds, validates, and saves a draft, then publishes it — gated by live traffic: automatically when the workflow's traffic is low, only after explicit confirmation when it's high. Publishing changes LIVE traffic — see the Danger section. SKIP for editing arbitrary fields of an existing revision, or for questionnaires/levels (separate skills).
+description: >-
+  Create a Sumsub applicant workflow — verification routing (levels, branches, country/age rules, final-rejection or manual-review steps) or an action workflow (post-verification tagging, notes, source-key changes). TRIGGER on requests to create/build/add a workflow or a flowchart-style routing description. Builds, validates, and saves a draft, then publishes it — gated by live traffic: automatically when the workflow's traffic is low, only after explicit confirmation when it's high. Publishing changes LIVE traffic — see the Danger section. SKIP for editing arbitrary fields of an existing revision, or for questionnaires/levels (separate skills).
 allowed-tools: Read, Write, Bash
 ---
 
