@@ -102,7 +102,7 @@ Signing string for `POST /resources/accessTokens?userId=...&levelName=basic-kyc-
 ## Reference implementations
 
 The official multi-language examples live at
-[SumSubstance/AppTokenUsageExamples](https://github.com/SumSubstance/AppTokenUsageExamples)
+[sumsub/AppTokenUsageExamples](https://github.com/sumsub/AppTokenUsageExamples)
 (Java, JS, Python, Ruby, Go, PHP, C#). Use those for production integrations.
 
 For one-off calls or debugging, this skill ships two small helpers:

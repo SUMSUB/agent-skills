@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/anthropics/skills/main/schema/skills.json",
   "name": "@sumsub/agent-skills",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "skills": [
     {
       "name": "sumsub-api-auth",
@@ -52,6 +52,24 @@
       "description": "End-to-end Sumsub WebSDK integration for a web app. Covers level setup, server-signed access-token endpoint, snsWebSdk init (vanilla + React), client lifecycle events, webhook signature verification (including ngrok-based local testing), server-side status reads, sandbox testing, and go-live checklist."
     },
     {
+      "name": "sumsub-integrate-msdk",
+      "path": "./skills/sumsub-integrate-msdk",
+      "entry": "SKILL.md",
+      "description": "End-to-end Sumsub Mobile SDK integration for an iOS app. Covers install (Swift Package Manager or CocoaPods), Info.plist permissions, the SDK lifecycle file (token refresh + callbacks), wiring into the app target, and the UIKit or SwiftUI launch site. iOS only."
+    },
+    {
+      "name": "sumsub-theme-msdk",
+      "path": "./skills/sumsub-theme-msdk",
+      "entry": "SKILL.md",
+      "description": "Theme the Sumsub Mobile SDK to match a mobile app's design system. Scans the app's colors, fonts, corner radii and light/dark handling, derives a full palette, and generates a SumsubTheme class wired at the launch site. iOS only."
+    },
+    {
+      "name": "sumsub-integrate-id-connect",
+      "path": "./skills/sumsub-integrate-id-connect",
+      "entry": "SKILL.md",
+      "description": "End-to-end Sumsub ID Connect (OIDC) integration. Covers Dashboard config, the @sumsub/id-connect frontend button/modal, backend authorization-code exchange at /resources/snsId/api/connect/token, share-token minting at /resources/accessTokens/sumsubIdShareToken, the partner-consent shareLink fallback, and applicant materialisation via /resources/api/reusableIdentity/reuse."
+    },
+    {
       "name": "sumsub-api-generic",
       "path": "./skills/sumsub-api-generic",
       "entry": "SKILL.md",
@@ -67,7 +85,7 @@
       "name": "sumsub-check-skills-version",
       "path": "./skills/sumsub-check-skills-version",
       "entry": "SKILL.md",
-      "description": "Check whether the installed Sumsub agent-skills package is up to date. Fetches the canonical version from https://api.sumsub.com/llms.txt and compares it to the locally installed version: warns on a patch-level drift, and recommends re-running `npx skills add SumSubstance/agent-skills --all` on a minor/major drift."
+      "description": "Check whether the installed Sumsub agent-skills package is up to date. Fetches the canonical version from https://api.sumsub.com/llms.txt and compares it to the locally installed version: warns on a patch-level drift, and recommends re-running `npx skills add sumsub/agent-skills --all` on a minor/major drift."
     },
     {
       "name": "sumsub-analyze-regulation",
@@ -76,10 +94,34 @@
       "description": "Analyze a regulation document (PDF or text) and produce a Sumsub configuration plan — mapping regulatory requirements to Sumsub entities (levels, questionnaires, PoA presets, TM rules, workflows). Entry point before invoking create-level, create-questionnaire, create-poa-preset, create-workflow, and other skills."
     },
     {
+      "name": "sumsub-integrate-dint-standalone",
+      "path": "./skills/sumsub-integrate-dint-standalone",
+      "entry": "SKILL.md",
+      "description": "Add Sumsub Device Intelligence (the Fisherman JS module) to your own web pages where there is NO Sumsub verification widget — login, signup, password reset, 2FA, checkout, or any high-value action you want fraud-screened. TRIGGER when the user asks to \"add device intelligence to login / signup\", \"fingerprint the device on a custom page\", \"use Fisherman standalone / self-hosted\", \"ongoing monitoring of platform events\", \"pre-KYC device check\", \"detect multi-accounting at signup\", or \"send a financial transaction with the captured device\". Covers the whole loop — behavior access token, @sumsub/fisherman init + fingerprint, confirming the event (platform event / financial transaction / create-applicant), reading results, sandbox, go-live. SKIP when the page already embeds the Sumsub WebSDK — Device Intelligence rides along inside it, use `sumsub-integrate-dint-websdk`."
+    },
+    {
+      "name": "sumsub-integrate-dint-websdk",
+      "path": "./skills/sumsub-integrate-dint-websdk",
+      "entry": "SKILL.md",
+      "description": "Add Sumsub Device Intelligence (the Fisherman module) to a web project that already verifies users with the Sumsub WebSDK. TRIGGER when the user asks to \"add device intelligence\", \"enable device capture / fingerprinting in the WebSDK\", \"turn on Fisherman\", \"detect device fraud / multi-accounting in the verification flow\", or asks how device risk labels get onto an applicant verified through the WebSDK. Covers the whole loop — enabling Capture devices on the level, the automatic in-SDK Fisherman lifecycle, the advanced self-rendered wiring, reading device signals (Devices tab, Device Check, risk labels, webhooks), sandbox testing, go-live checklist. SKIP for device intelligence on pages with NO WebSDK widget (login / signup / checkout) — use `sumsub-integrate-dint-standalone`; SKIP for the base WebSDK embed itself — use `sumsub-integrate-websdk`."
+    },
+    {
+      "name": "sumsub-create-kyt-rules",
+      "path": "./skills/sumsub-create-kyt-rules",
+      "entry": "SKILL.md",
+      "description": "Create or modify KYT transaction monitoring scoring rules via POST /resources/api/agent/tm/rules. Translates user-described conditions (amount thresholds, country lists, aggregations, scheduled applicant checks) into KytTxnRule payloads and POSTs them one at a time. The endpoint validates conditionEl and creates the rule in one call — HTTP 200 returns KytTxnRuleView on success, HTTP 400 returns an error message on failure. Rules start in testMode (dryRun) and must be activated in the dashboard."
+    },
+    {
       "name": "sumsub-manage-webhooks",
       "path": "./skills/sumsub-manage-webhooks",
       "entry": "SKILL.md",
       "description": "Manage Sumsub clientWebhooks (event subscriptions): list (oldest 50) and GET /{id} via /resources/api/clientWebhooks; create (POST), update (PATCH), and disable/enable via /resources/api/agent/clientWebhooks. Sandbox only — production webhooks must be created by a human directly in the dashboard. Delete and per-webhook delivery stats are dashboard-only and not covered by this skill."
+    },
+    {
+      "name": "sumsub-conformance",
+      "path": "./skills/sumsub-conformance",
+      "entry": "SKILL.md",
+      "description": "Check whether a tenant's DEPLOYED Sumsub config actually satisfies a regulation/policy document. Ingests the regulation (renders PDF pages for visual reading), resolves the live config graph (level + questionnaires-with-scores + presets + auto-found workflow + entitlements), and traces each requirement to where it is collected, scored, and ENFORCED — bucketing findings MISSING / SCORING-MISMATCH / COLLECTED-NOT-ENFORCED / NOT-CONFIG-REPRESENTABLE / CONFORMANT. Surfaces 'collected-but-not-enforced' gaps no other skill sees. Advisory, human-signed; deterministic spine + LLM judgment kept separate. Sandbox only."
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "name": "@sumsub/agent-skills",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Agent Skills for the Sumsub API — applicant levels, questionnaires, PoA presets, workflows, transaction monitoring, WebSDK integration, and regulation analysis.",
   "keywords": [
     "skill",
@@ -17,13 +17,13 @@
     "compliance",
     "identity-verification"
   ],
-  "homepage": "https://github.com/SumSubstance/agent-skills#readme",
+  "homepage": "https://github.com/sumsub/agent-skills#readme",
   "bugs": {
-    "url": "https://github.com/SumSubstance/agent-skills/issues"
+    "url": "https://github.com/sumsub/agent-skills/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SumSubstance/agent-skills.git"
+    "url": "git+https://github.com/sumsub/agent-skills.git"
   },
   "license": "MIT",
   "author": "Sumsub",
@@ -44,6 +44,9 @@
       "./skills/sumsub-create-questionnaire",
       "./skills/sumsub-create-transaction",
       "./skills/sumsub-create-workflow",
+      "./skills/sumsub-integrate-dint-standalone",
+      "./skills/sumsub-integrate-dint-websdk",
+      "./skills/sumsub-integrate-id-connect",
       "./skills/sumsub-integrate-websdk",
       "./skills/sumsub-manage-webhooks"
     ]

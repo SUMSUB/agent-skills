@@ -3,7 +3,7 @@
 > **You're here if:** SPM is the chosen dependency manager (per Step 1; the default).
 > **Prereqs:** Step 1 done — you know the app target.
 
-The base package is `https://github.com/SumSubstance/IdensicMobileSDK-iOS.git`, product `IdensicMobileSDK`. On top of it, add each optional module the user confirmed in intake (Q3) — if they confirmed none, just the base. Each module is its **own** SPM package (repo + product), pinned to the same version as the base; all four are listed in [`../examples/Package.swift.snippet`](../examples/Package.swift.snippet) (commented out).
+The base package is `https://github.com/sumsub/IdensicMobileSDK-iOS.git`, product `IdensicMobileSDK`. On top of it, add each optional module the user confirmed in intake (Q3) — if they confirmed none, just the base. Each module is its **own** SPM package (repo + product), pinned to the same version as the base; all four are listed in [`../examples/Package.swift.snippet`](../examples/Package.swift.snippet) (commented out).
 
 Tell the user exactly what you'll add and why, ask once, and edit only after explicit approval.
 
@@ -15,7 +15,7 @@ Pick the path by whether the project has a `Package.swift`:
 Both file-editing paths need the latest tag for the version (`from:`, or the pbxproj version rule) — resolve it with:
 
 ```bash
-git ls-remote --tags --refs https://github.com/SumSubstance/IdensicMobileSDK-iOS.git \
+git ls-remote --tags --refs https://github.com/sumsub/IdensicMobileSDK-iOS.git \
   | awk -F/ '{print $NF}' | sort -V | tail -1
 ```
 

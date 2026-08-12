@@ -1,6 +1,6 @@
 ---
 name: sumsub-check-skills-version
-description: Verify that the locally installed Sumsub agent-skills package is compatible with the published version before doing any Sumsub work. TRIGGER at the start of any task that touches Sumsub — Sumsub Dev MCP tools (mcp__Sumsub_Dev__*), KYC/AML workflows, applicants, checks, transactions, verification levels, verification links, questionnaires, fraud network, VASP lists, or anything Sumsub-related — so the user is warned before a stale skills package produces wrong results. Also use this skill when the user explicitly asks "are my Sumsub skills up to date / current", "is there a newer version of the Sumsub skills", or similar. Skip the actual update (the user runs `npx skills add SumSubstance/agent-skills --all` themselves) and skip any other Sumsub API or entity task — those have their own skills.
+description: Verify that the locally installed Sumsub agent-skills package is compatible with the published version before doing any Sumsub work. TRIGGER at the start of any task that touches Sumsub — Sumsub Dev MCP tools (mcp__Sumsub_Dev__*), KYC/AML workflows, applicants, checks, transactions, verification levels, verification links, questionnaires, fraud network, VASP lists, or anything Sumsub-related — so the user is warned before a stale skills package produces wrong results. Also use this skill when the user explicitly asks "are my Sumsub skills up to date / current", "is there a newer version of the Sumsub skills", or similar. Skip the actual update (the user runs `npx skills add sumsub/agent-skills --all` themselves) and skip any other Sumsub API or entity task — those have their own skills.
 allowed-tools: Bash
 ---
 
@@ -64,7 +64,7 @@ It prints up to four `key=value` lines on stdout:
 local=1.0.1
 remote=1.0.2
 status=PATCH_BEHIND
-headsup=> ⚠️ **Sumsub skills update available** — you're on **1.0.1**, latest is **1.0.2** (patch). Run `npx skills add SumSubstance/agent-skills --all` to update.
+headsup=> ⚠️ **Sumsub skills update available** — you're on **1.0.1**, latest is **1.0.2** (patch). Run `npx skills add sumsub/agent-skills --all` to update.
 ```
 
 - `local` — installed version (baked into `references/version.txt` at publish time).
@@ -104,7 +104,7 @@ User: *"look up sumsub transaction 65a3… — what risk score and which rules f
 
 Your reply:
 
-> ⚠️ **Sumsub skills update available** — you're on **1.0.0**, latest is **1.0.1** (patch). Run `npx skills add SumSubstance/agent-skills --all` to update.
+> ⚠️ **Sumsub skills update available** — you're on **1.0.0**, latest is **1.0.1** (patch). Run `npx skills add sumsub/agent-skills --all` to update.
 
 Transaction `65a3…`: risk score 78 (RED), 2 rules fired — …answer the actual request here…
 
