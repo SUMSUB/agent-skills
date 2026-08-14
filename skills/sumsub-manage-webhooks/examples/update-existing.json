@@ -10,6 +10,5 @@
     "applicantOnHold",
     "applicantTagsChanged"
   ],
-  "signatureAlgorithm": "HMAC_SHA256_HEX",
-  "disabled": false
+  "signatureAlgorithm": "HMAC_SHA256_HEX"
 }

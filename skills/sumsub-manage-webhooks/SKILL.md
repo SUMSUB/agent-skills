@@ -1,12 +1,12 @@
 ---
 name: sumsub-manage-webhooks
-description: Manage Sumsub `clientWebhooks` (event subscriptions for applicantReviewed / applicantPending / kytTxn / etc.) — reads via `/resources/api/clientWebhooks`, writes via `/resources/api/agent/clientWebhooks`. **Sandbox only** — production webhooks must be created by a human directly in the Sumsub dashboard. TRIGGER when the user asks to "list / retrieve / show webhooks", "create / add / register a webhook", "update / edit / change a webhook target / event list / secret / signature algorithm", or "disable / re-enable a webhook" against their sandbox tenant. SKIP for production webhook setup (refer the user to the dashboard), for unrelated webhook surfaces (Stripe / videoIdent / Fireblocks / NFC / partner-specific receive paths under `/resources/webhooks/...`), for testing one-off delivery (use the `inspectionCallbacks/testWebhook` endpoint directly), and for KYT-only webhook routing (that's managed in the Sumsub dashboard's KYT section). The public API does not expose delete or per-webhook delivery stats — for those, refer the user to the Sumsub dashboard UI.
+description: Manage Sumsub `clientWebhooks` (event subscriptions for applicantReviewed / applicantPending / kytTxn / etc.) — reads via `/resources/api/clientWebhooks`, writes via `/resources/api/agent/clientWebhooks`. **Sandbox only** — production webhooks must be created by a human directly in the Sumsub dashboard. TRIGGER when the user asks to "list / retrieve / show webhooks", "create / add / register a webhook", or "update / edit / change a webhook target / event list / secret / signature algorithm" against their sandbox tenant. SKIP for production webhook setup (refer the user to the dashboard), for unrelated webhook surfaces (Stripe / videoIdent / Fireblocks / NFC / partner-specific receive paths under `/resources/webhooks/...`), for testing one-off delivery (use the `inspectionCallbacks/testWebhook` endpoint directly), and for KYT-only webhook routing (that's managed in the Sumsub dashboard's KYT section). The public API does not expose delete or per-webhook delivery stats — for those, refer the user to the Sumsub dashboard UI.
 allowed-tools: Read, Write, Bash
 ---
 
 # Sumsub — Manage Client Webhooks
 
-Lists, retrieves, creates, updates, and disables/enables `ClientWebhook`
+Lists, retrieves, creates, and updates `ClientWebhook`
 event subscriptions. Reads use `/resources/api/clientWebhooks`; writes use
 `/resources/api/agent/clientWebhooks`.
 
@@ -51,8 +51,8 @@ otherwise ask once before running. Never echo the secret back.
 
 ## Sandbox-only scope — production webhooks must be created by a human
 
-Because this skill only accepts sandbox App Tokens, every webhook it creates,
-updates, or toggles lives in the sandbox workspace. Sandbox and production are
+Because this skill only accepts sandbox App Tokens, every webhook it creates
+or updates lives in the sandbox workspace. Sandbox and production are
 separate tenants on Sumsub's side — there is no "promote to prod" path, and
 re-running this skill with a production token is **not** the right way to set
 up a real webhook.
@@ -83,8 +83,6 @@ manage_webhooks.sh list --json                # raw JSON of all webhooks
 manage_webhooks.sh get <webhookId>            # one webhook (filtered from the list)
 manage_webhooks.sh create <spec.json>         # POST without id  (compact spec → ClientWebhook)
 manage_webhooks.sh update <spec.json>         # POST with id     (spec MUST contain id)
-manage_webhooks.sh disable <webhookId>        # GET → flip disabled=true → POST
-manage_webhooks.sh enable  <webhookId>        # GET → flip disabled=false → POST
 ```
 
 `create` and `update` both call `build_webhook_payload.py` to expand the compact spec.
@@ -132,7 +130,6 @@ headers:                       # optional extra HTTP headers added to each deliv
   - { key: "Authorization", value: "Bearer ${MY_TOKEN}" }   # caller substitutes before sending
 
 # Lifecycle flags
-disabled: false                # default false; set true to pause without deleting
 notResendFailedWebhooks: false # default false; true = no automatic retries on delivery failure
 ```
 
@@ -177,7 +174,6 @@ The skill forwards whatever the caller writes — no client-side validation, sin
 - **`list`** — table with `id`, `name`, `target`, `disabled`, `types[]`, `applicantType`, `signatureAlgorithm`, `createdAt`.
 - **`get`** — the full single webhook JSON (with `secretKey` redacted in the output as a defensive measure).
 - **`create` / `update`** — the persisted `ClientWebhook` (with server-assigned `id` on create) and a one-line summary.
-- **`disable` / `enable`** — reports the new `disabled` value.
 
 ## Worked examples
 

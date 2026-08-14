@@ -26,6 +26,5 @@
     { "key": "X-Environment", "value": "production" }
   ],
 
-  "notResendFailedWebhooks": false,
-  "disabled": false
+  "notResendFailedWebhooks": false
 }

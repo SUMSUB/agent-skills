@@ -10,6 +10,5 @@
     "applicantOnHold"
   ],
   "signatureAlgorithm": "HMAC_SHA256_HEX",
-  "secretKey": "REPLACE_WITH_GENERATED_SECRET",
-  "disabled": false
+  "secretKey": "REPLACE_WITH_GENERATED_SECRET"
 }

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Manage Sumsub clientWebhooks: list / get / create / update / disable / enable.
+# Manage Sumsub clientWebhooks: list / get / create / update.
 #
 # Reads (GET list/get) hit /resources/api/clientWebhooks; writes (POST upsert
-# for create/update/disable/enable) hit /resources/api/agent/clientWebhooks,
+# for create/update) hit /resources/api/agent/clientWebhooks,
 # Delete and per-webhook delivery
 # stats have no public-API equivalent and must be handled in the Sumsub
 # dashboard UI; they are not implemented here.
@@ -17,8 +17,6 @@
 #   manage_webhooks.sh get    <id>
 #   manage_webhooks.sh create <spec.json>
 #   manage_webhooks.sh update <spec.json>     # spec must include id
-#   manage_webhooks.sh disable <id>
-#   manage_webhooks.sh enable  <id>
 #
 # Refuses non-sandbox tokens unless SUMSUB_ALLOW_PROD=1.
 # Override SUMSUB_BASE only for testing; default is https://api.sumsub.com.
@@ -35,13 +33,13 @@ if [[ "${SUMSUB_APP_TOKEN}" != sbx:* && "${SUMSUB_ALLOW_PROD:-0}" != "1" ]]; the
 fi
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-# Reads (list / get) hit the non-agent resource; writes (create / update /
-# disable / enable) hit the agent resource.
+# Reads (list / get) hit the non-agent resource; writes (create / update)
+# hit the agent resource.
 READ_PATH="/resources/api/clientWebhooks"
 WRITE_PATH="/resources/api/agent/clientWebhooks"
 
 if [[ $# -lt 1 ]]; then
-  sed -n '4,24p' "$0" >&2; exit 2
+  sed -n '4,22p' "$0" >&2; exit 2
 fi
 CMD="$1"; shift || true
 
@@ -70,7 +68,7 @@ sumsub_request() {
     -H "X-App-Access-Ts: ${ts}"
     -H "X-App-Access-Sig: ${sig}"
     -H "X-Agent-Source: sumsub-skills"
-    -H "X-Agent-Source-Ver: 1.2.0"
+    -H "X-Agent-Source-Ver: 1.3.0"
     -H "Accept: application/json"
   )
   if [[ -n "${body_file}" ]]; then
@@ -169,42 +167,9 @@ print(f\"  types:         {w.get('types')}\")
 "
     ;;
 
-  disable|enable)
-    [[ $# -ge 1 ]] || { echo "usage: $CMD <id>" >&2; exit 2; }
-    id="$1"
-    new_state="$([ "$CMD" = "disable" ] && echo true || echo false)"
-    body="$(sumsub_request GET "${READ_PATH}")"
-    current="$(python3 -c "
-import json, sys
-d=json.loads(sys.argv[1]); items=(d.get('list') or {}).get('items') or []
-for w in items:
-    if w.get('id')==sys.argv[2]: print(json.dumps(w)); sys.exit(0)
-print(''); sys.exit(0)
-" "$body" "$id")"
-    if [[ -z "$current" ]]; then
-      echo "no webhook with id=$id" >&2; exit 1
-    fi
-    new_payload="$(mktemp)"
-    trap 'rm -f "$new_payload"' EXIT
-    python3 -c "
-import json, sys
-w=json.loads(sys.argv[1])
-w['disabled']=(sys.argv[2]=='true')
-print(json.dumps(w))
-" "$current" "$new_state" > "$new_payload"
-    resp="$(sumsub_request POST "${WRITE_PATH}" "$new_payload")"
-    echo "$resp" | python3 -c "
-import json, sys
-w=json.load(sys.stdin)
-if w.get('code'):
-    print('ERROR:', w); sys.exit(1)
-print(f\"webhook {w.get('id')}  disabled={w.get('disabled')}\")
-"
-    ;;
-
   *)
     echo "unknown command: $CMD" >&2
-    sed -n '4,24p' "$0" >&2
+    sed -n '4,22p' "$0" >&2
     exit 2
     ;;
 esac

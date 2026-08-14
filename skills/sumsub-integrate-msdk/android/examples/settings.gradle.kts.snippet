@@ -1,0 +1,41 @@
+// settings.gradle.kts — Kotlin DSL.
+// The Sumsub SDK is published on Sumsub's own Maven repository, not Maven Central.
+// Add the repository so Gradle can resolve `com.sumsub.sns:*`. Add it in exactly ONE
+// place — wherever this project already declares repositories.
+
+// MODERN projects (Gradle 7+) declare repositories centrally in settings.gradle.kts
+// under dependencyResolutionManagement — add the maven line alongside google() / mavenCentral():
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)   // keep whatever mode the project already has — don't add or change it
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://maven.sumsub.com/repository/maven-public/") }   // Sumsub SDK
+
+        // ONLY if the eID module was selected in intake: the eID artifact lives in
+        // Sumsub's PRIVATE repo. Credentials come from Sumsub support — put them in
+        // ~/.gradle/gradle.properties (sumsubRepoUsername / sumsubRepoPassword);
+        // NEVER hardcode or commit them.
+        // maven {
+        //     url = uri("https://maven.sumsub.com/repository/maven-private/")
+        //     credentials {
+        //         username = providers.gradleProperty("sumsubRepoUsername").getOrElse("")
+        //         password = providers.gradleProperty("sumsubRepoPassword").getOrElse("")
+        //     }
+        // }
+    }
+}
+
+// OLDER projects without dependencyResolutionManagement: add the same blocks to the
+// `allprojects { repositories { ... } }` block in the ROOT build.gradle.kts instead.
+//
+// Groovy DSL (settings.gradle):
+//   maven { url "https://maven.sumsub.com/repository/maven-public/" }
+//   // eID only:
+//   maven {
+//       url "https://maven.sumsub.com/repository/maven-private/"
+//       credentials {
+//           username = providers.gradleProperty("sumsubRepoUsername").getOrElse("")
+//           password = providers.gradleProperty("sumsubRepoPassword").getOrElse("")
+//       }
+//   }

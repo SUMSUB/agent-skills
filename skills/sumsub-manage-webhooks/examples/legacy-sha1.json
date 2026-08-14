@@ -8,6 +8,5 @@
     "applicantReviewed"
   ],
   "signatureAlgorithm": "HMAC_SHA1_HEX",
-  "secretKey": "REPLACE_WITH_GENERATED_SECRET",
-  "disabled": false
+  "secretKey": "REPLACE_WITH_GENERATED_SECRET"
 }

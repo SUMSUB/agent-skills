@@ -1,0 +1,32 @@
+// Merge into the APP MODULE build.gradle.kts (e.g. app/build.gradle.kts), not the root one.
+// Kotlin DSL. Requirements: AndroidX, minSdk >= 23, Kotlin >= 2.1.0.
+// The Sumsub Maven repository itself goes in settings.gradle.kts — see settings.gradle.kts.snippet.
+
+android {
+    defaultConfig {
+        minSdk = 23          // SDK requires API level 23+ — raise if lower
+    }
+}
+
+dependencies {
+    // ...app's existing dependencies stay as they are
+
+    // Pin one version and reuse it for every Sumsub artifact — base and modules
+    // MUST share the same version. Resolve the latest from the changelog; 1.45.1 shown.
+    val sumsubSdkVersion = "1.45.1"
+
+    implementation("com.sumsub.sns:idensic-mobile-sdk:$sumsubSdkVersion")
+
+    // Optional modules — uncomment only the ones confirmed in intake (same version):
+    // implementation("com.sumsub.sns:idensic-mobile-sdk-videoident:$sumsubSdkVersion")  // VideoIdent
+    // implementation("com.sumsub.sns:idensic-mobile-sdk-eid:$sumsubSdkVersion")         // German eID — separate PRIVATE repo; credentials from Sumsub support
+    // implementation("com.sumsub.sns:idensic-mobile-sdk-nfc:$sumsubSdkVersion")         // NFC passport / eMRTD (MRTDReader)
+    //
+    // Device Intelligence (Fisherman) is bundled in the base SDK since 1.43.0 —
+    // no separate dependency needed on Android.
+}
+
+// Groovy DSL (build.gradle): `minSdk 23`, `def sumsubSdkVersion = "1.45.1"`,
+//   implementation "com.sumsub.sns:idensic-mobile-sdk:$sumsubSdkVersion"
+// If the project uses a version catalog (gradle/libs.versions.toml), declare the
+// version + libraries there and reference them the house way instead.

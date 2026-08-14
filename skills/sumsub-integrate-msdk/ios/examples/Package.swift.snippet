@@ -1,0 +1,24 @@
+// Package.swift structure — add IdensicMobileSDK (and any confirmed modules) to your target.
+// Replace X.Y.Z with the latest tag — see stages/2b-install-spm.md for how to resolve it.
+
+dependencies: [
+    .package(url: "https://github.com/sumsub/IdensicMobileSDK-iOS.git", from: "X.Y.Z"),
+
+    // Optional modules (each its own package) — uncomment only the ones confirmed in intake:
+    // .package(url: "https://github.com/sumsub/IdensicMobileSDK-iOS-MRTDReader.git", from: "X.Y.Z"), // NFC
+    // .package(url: "https://github.com/sumsub/IdensicMobileSDK-iOS-VideoIdent.git", from: "X.Y.Z"), // Video ID
+    // .package(url: "https://github.com/sumsub/IdensicMobileSDK-iOS-EID.git",        from: "X.Y.Z"), // eID
+    // .package(url: "https://github.com/sumsub/IdensicMobileSDK-iOS-Fisherman.git",  from: "X.Y.Z"), // Device Intelligence
+],
+
+targets: [
+    .target(name: "YourApp", dependencies: [   // YourApp = your real target
+        .product(name: "IdensicMobileSDK", package: "IdensicMobileSDK-iOS"),
+
+        // add the product for each module package enabled above:
+        // .product(name: "IdensicMobileSDK_MRTDReader", package: "IdensicMobileSDK-iOS-MRTDReader"),
+        // .product(name: "IdensicMobileSDK_VideoIdent", package: "IdensicMobileSDK-iOS-VideoIdent"),
+        // .product(name: "IdensicMobileSDK_EID",        package: "IdensicMobileSDK-iOS-EID"),
+        // .product(name: "IdensicMobileSDK_Fisherman",  package: "IdensicMobileSDK-iOS-Fisherman"),
+    ])
+]

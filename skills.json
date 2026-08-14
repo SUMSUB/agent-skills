@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/anthropics/skills/main/schema/skills.json",
   "name": "@sumsub/agent-skills",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "skills": [
     {
       "name": "sumsub-api-auth",
@@ -55,13 +55,13 @@
       "name": "sumsub-integrate-msdk",
       "path": "./skills/sumsub-integrate-msdk",
       "entry": "SKILL.md",
-      "description": "End-to-end Sumsub Mobile SDK integration for an iOS app. Covers install (Swift Package Manager or CocoaPods), Info.plist permissions, the SDK lifecycle file (token refresh + callbacks), wiring into the app target, and the UIKit or SwiftUI launch site. iOS only."
+      "description": "Add Sumsub identity verification (KYC) to your native iOS or Android app. Detects the platform, then walks you from installing the Mobile SDK (iOS: Swift Package Manager or CocoaPods; Android: Gradle + the Sumsub Maven repo) through permissions to a ready-to-run integration file — token refresh, lifecycle callbacks, and the launch point (iOS: UIKit or SwiftUI; Android: Activity, Fragment, or Compose) included, with your approval at each step. Native iOS & Android only."
     },
     {
       "name": "sumsub-theme-msdk",
       "path": "./skills/sumsub-theme-msdk",
       "entry": "SKILL.md",
-      "description": "Theme the Sumsub Mobile SDK to match a mobile app's design system. Scans the app's colors, fonts, corner radii and light/dark handling, derives a full palette, and generates a SumsubTheme class wired at the launch site. iOS only."
+      "description": "Theme the Sumsub Mobile SDK to match a mobile app's design system. Scans the app's colors, fonts, corner radii and light/dark handling, derives a full palette, and generates a SumsubTheme class wired at the launch site. iOS (Swift/SNSTheme subclass) and Android (Kotlin/SNSTheme DSL)."
     },
     {
       "name": "sumsub-integrate-id-connect",
@@ -115,7 +115,19 @@
       "name": "sumsub-manage-webhooks",
       "path": "./skills/sumsub-manage-webhooks",
       "entry": "SKILL.md",
-      "description": "Manage Sumsub clientWebhooks (event subscriptions): list (oldest 50) and GET /{id} via /resources/api/clientWebhooks; create (POST), update (PATCH), and disable/enable via /resources/api/agent/clientWebhooks. Sandbox only — production webhooks must be created by a human directly in the dashboard. Delete and per-webhook delivery stats are dashboard-only and not covered by this skill."
+      "description": "Manage Sumsub clientWebhooks (event subscriptions) via /resources/clientWebhooks: list (oldest 50), GET /{id} for one, POST to create, and PATCH to update. Sandbox only — production webhooks must be created by a human directly in the dashboard. Delete and per-webhook delivery stats are dashboard-only and not covered by this skill."
+    },
+    {
+      "name": "sumsub-supported-id-documents",
+      "path": "./skills/sumsub-supported-id-documents",
+      "entry": "SKILL.md",
+      "description": "Read and edit Sumsub supported identity documents. READ the built-in catalogue (GET /resources/api/agent/supportedDocs/documentsByCountries) with a local filter script that returns only the relevant slice. EDIT a client's overrides via read-modify-write: a builder script merges the changed (country, docType) fields into the client's current map locally, then the full map goes to the replace-all PUT /resources/api/agent/globalSettings/idDocSettings/countryMappings (explicit confirmation required); removal / restore-to-default sends the same PUT minus the entry."
+    },
+    {
+      "name": "sumsub-manage-applicant-tags",
+      "path": "./skills/sumsub-manage-applicant-tags",
+      "entry": "SKILL.md",
+      "description": "Add, replace, or remove tags on a Sumsub applicant profile via the public API — POST /resources/applicants/{applicantId}/tags/add (additive), POST .../tags (overwrite full set), DELETE .../tags (remove), read-back via GET .../one. TRIGGER when the user asks to tag / untag an applicant, add / remove / clear applicant tags, label an applicant profile, or replace an applicant's tag set. SKIP for transaction tags, tag definitions with scoring weights, or applicant risk assessment (sumsub-create-kyt-rules), for automated tagging inside workflows (sumsub-create-workflow), and for tag-change webhook subscriptions (sumsub-manage-webhooks)."
     },
     {
       "name": "sumsub-conformance",
